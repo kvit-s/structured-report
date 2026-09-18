@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/python.sh\" \"${CLAUDE_PLUGIN_ROOT}/scripts/report_gate.py\"",
+            "timeout": 30,
+            "statusMessage": "Checking how the turn ended"
+          }
+        ]
+      }
+    ],
+    "MessageDisplay": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/python.sh\" \"${CLAUDE_PLUGIN_ROOT}/scripts/report_display.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

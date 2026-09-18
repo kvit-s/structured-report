@@ -1,0 +1,14 @@
+{
+  "name": "kvit-s",
+  "owner": {
+    "name": "kvit-s"
+  },
+  "description": "Plugins by kvit-s for Claude Code",
+  "plugins": [
+    {
+      "name": "structured-report",
+      "source": "./plugins/structured-report",
+      "description": "End a working turn with a headline, how it was checked, and an AskUserQuestion offering what to do next"
+    }
+  ]
+}
