@@ -150,3 +150,7 @@ plugins/structured-report/
   output-styles/report.md              the convention itself
   tests/test_report_gate.py
 ```
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).

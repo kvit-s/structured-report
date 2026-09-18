@@ -5,5 +5,12 @@
   "author": {
     "name": "kvit-s"
   },
-  "keywords": ["hooks", "output-style", "reports", "askuserquestion", "workflow"]
+  "license": "MIT",
+  "keywords": [
+    "hooks",
+    "output-style",
+    "reports",
+    "askuserquestion",
+    "workflow"
+  ]
 }
