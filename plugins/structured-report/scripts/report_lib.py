@@ -174,7 +174,7 @@ def find_transcript(payload: dict) -> str | None:
 def project_dir(cwd: str) -> str:
     """Where Claude Code keeps this directory's transcripts. The folder name is
     the path with every character that is not a letter or a digit replaced by a
-    dash: `/home/sk/kvit-coder` becomes `-home-sk-kvit-coder`, and
+    dash: `/home/you/project` becomes `-home-you-project`, and
     `D:\\projects\\foo` becomes `D--projects-foo`."""
     sanitized = re.sub(r"[^A-Za-z0-9]", "-", os.path.abspath(cwd))
     return os.path.expanduser(f"~/.claude/projects/{sanitized}")
