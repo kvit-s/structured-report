@@ -1,6 +1,6 @@
 {
   "name": "structured-report",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A turn that changes something ends with prose and one AskUserQuestion offering what to do next. A Stop hook checks that it did; /report reads the last one back.",
   "author": {
     "name": "kvit-s"

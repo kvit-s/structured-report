@@ -95,6 +95,37 @@ fall back to `~/.claude/settings.json`, so the nearest setting wins and a
 subdirectory can turn it back on. A value in the real environment beats all of
 them.
 
+## Updating
+
+Installing copies the plugin's files into
+`~/.claude/plugins/cache/<marketplace>/structured-report/<version>/`, and that
+copy stays at the commit it was taken from until it is updated. On a machine
+where the plugin is already installed, two commands bring it up to date:
+
+```
+claude plugin marketplace update kvit-s
+claude plugin update structured-report@kvit-s
+```
+
+The first pulls this repository into the local clone of the marketplace; without
+it the second has nothing new to look at. Restart Claude Code afterwards, since
+the update says `Restart to apply changes` and a running session keeps the files
+it started with. Inside a session, `/plugin` offers the same actions.
+
+The second command decides by the `version` field in
+`plugins/structured-report/.claude-plugin/plugin.json`. If that number has not
+changed since the machine installed the plugin, it answers `already at the
+latest version` and copies nothing, however many commits were pushed in the
+meantime. Bump it with every change other machines should pick up. When a change
+did go out without a bump, reinstalling takes the current files whatever the
+version says:
+
+```
+claude plugin marketplace update kvit-s
+claude plugin uninstall structured-report@kvit-s
+claude plugin install structured-report@kvit-s
+```
+
 ## What a turn looks like afterwards
 
 > Reordering works and survives a restart.
