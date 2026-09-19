@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -24,6 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = HERE if os.path.exists(os.path.join(HERE, "report_gate.py")) \
     else os.path.join(os.path.dirname(HERE), "scripts")
 GATE = os.path.join(SCRIPTS, "report_gate.py")
+CONTEXT = os.path.join(SCRIPTS, "report_context.py")
 sys.path.insert(0, SCRIPTS)
 import report_lib as lib  # noqa: E402
 
@@ -114,6 +114,27 @@ def check(name: str, condition: bool, detail: str = "") -> None:
         print(f"  FAIL {name}: {detail}")
 
 
+def workspace_with_env(root: str, value: str) -> str:
+    """A project whose own settings set the switch, the way a repository that
+    wants none of this would."""
+    ws = tempfile.mkdtemp(dir=root)
+    os.makedirs(os.path.join(ws, ".claude"))
+    with open(os.path.join(ws, ".claude", "settings.json"), "w") as f:
+        json.dump({"env": {"REPORT_GATE": value}}, f)
+    return ws
+
+
+def run_context(workspace: str, env: dict | None = None) -> dict:
+    """The SessionStart hook, run the way Claude Code runs it."""
+    payload = {"cwd": workspace, "hook_event_name": "SessionStart",
+               "source": "startup"}
+    proc = subprocess.run([sys.executable, CONTEXT], input=json.dumps(payload),
+                          capture_output=True, text=True,
+                          env={**os.environ, **(env or {})})
+    out = proc.stdout.strip()
+    return json.loads(out) if out else {}
+
+
 def workspace_with_style(root: str, style: str | None) -> str:
     ws = tempfile.mkdtemp(dir=root)
     if style is not None:
@@ -202,32 +223,37 @@ def gate_cases(root: str) -> None:
           and "decision" not in third,
           json.dumps([first.get("decision"), second.get("decision"), third])[:200])
 
-    out = run(EDIT + [text("Done.")], last_message="Done.", session=sid(), workspace=off)
-    check("another output style switches the gate off", out == {}, json.dumps(out))
-
-    nested = os.path.join(ws, "internal", "order")
-    os.makedirs(nested, exist_ok=True)
+    plain = workspace_with_style(root, None)   # no output style named anywhere
     out = run(EDIT + [text("Done.")], last_message="Done.", session=sid(),
-              workspace=nested)
-    check("the style is found from a subdirectory of the project",
+              workspace=plain)
+    check("being installed is enough, with no output style named",
           out.get("decision") == "block", json.dumps(out)[:120])
 
-    nested_off = os.path.join(off, "internal")
-    os.makedirs(os.path.join(nested_off, ".claude"), exist_ok=True)
-    with open(os.path.join(nested_off, ".claude", "settings.local.json"), "w") as f:
-        json.dump({"outputStyle": "report"}, f)
-    out = run(EDIT + [text("Done.")], last_message="Done.", session=sid(),
-              workspace=nested_off)
-    check("the nearest settings win over the ones above them",
+    out = run(EDIT + [text("Done.")], last_message="Done.", session=sid(), workspace=off)
+    check("another output style no longer switches it off",
           out.get("decision") == "block", json.dumps(out)[:120])
 
     out = run(EDIT + [text("Done.")], last_message="Done.", session=sid(), workspace=ws,
               env={"REPORT_GATE": "off"})
     check("REPORT_GATE=off switches it off", out == {}, json.dumps(out))
 
-    out = run(EDIT + [text("Done.")], last_message="Done.", session=sid(), workspace=off,
-              env={"REPORT_GATE": "on"})
-    check("REPORT_GATE=on switches it on without the style",
+    quiet = workspace_with_env(root, "off")
+    out = run(EDIT + [text("Done.")], last_message="Done.", session=sid(),
+              workspace=quiet)
+    check("a project switches it off in its own settings", out == {}, json.dumps(out))
+
+    nested_on = os.path.join(quiet, "internal", "order")
+    os.makedirs(os.path.join(nested_on, ".claude"), exist_ok=True)
+    with open(os.path.join(nested_on, ".claude", "settings.local.json"), "w") as f:
+        json.dump({"env": {"REPORT_GATE": "on"}}, f)
+    out = run(EDIT + [text("Done.")], last_message="Done.", session=sid(),
+              workspace=nested_on)
+    check("the nearest settings win over the ones above them",
+          out.get("decision") == "block", json.dumps(out)[:120])
+
+    out = run(EDIT + [text("Done.")], last_message="Done.", session=sid(),
+              workspace=quiet, env={"REPORT_GATE": "on"})
+    check("the environment beats a project's settings",
           out.get("decision") == "block", json.dumps(out)[:120])
 
     out = run(EDIT + [text("Done.")], last_message="Done.", session=sid(), workspace=ws,
@@ -325,6 +351,30 @@ def library_cases() -> None:
           not lib.prose_problems("Done: x.\nI did not run the suite; no network."))
 
 
+def context_cases(root: str) -> None:
+    print("the convention at session start")
+    plain = workspace_with_style(root, None)
+    body = (run_context(plain).get("hookSpecificOutput") or {}).get("additionalContext", "")
+    check("the convention is delivered when no output style is named",
+          "How a turn ends" in body and "AskUserQuestion" in body, body[:140])
+    check("it says what it is before the rules",
+          body.startswith("The structured-report convention"), body[:80])
+    check("the frontmatter is stripped off",
+          "keep-coding-instructions" not in body and not body.lstrip().startswith("---"),
+          body[:80])
+
+    styled = workspace_with_style(root, "report")
+    out = run_context(styled)
+    check("it stays quiet when the output style already sends the same text",
+          out == {}, json.dumps(out)[:140])
+
+    out = run_context(plain, env={"REPORT_GATE": "off"})
+    check("REPORT_GATE=off stays quiet", out == {}, json.dumps(out)[:140])
+
+    out = run_context(workspace_with_env(root, "off"))
+    check("a project that switched it off gets nothing", out == {}, json.dumps(out)[:140])
+
+
 def display_cases() -> None:
     print("the markers on screen")
     import report_display as disp
@@ -340,9 +390,19 @@ def display_cases() -> None:
 
 def main() -> int:
     root = tempfile.mkdtemp(prefix="report-gate-tests-")
+    # The switch and the output style are both read by walking up from the
+    # working directory and falling back to ~/.claude/settings.json, so the
+    # suite needs a home of its own or the machine it runs on decides the
+    # answers. Keeping it inside root means the cleanup below removes the
+    # report index files too.
+    home = os.path.join(root, "home")
+    os.makedirs(os.path.join(home, ".claude"), exist_ok=True)
+    os.environ["HOME"] = home
+    os.environ["USERPROFILE"] = home
     try:
         library_cases()
         display_cases()
+        context_cases(root)
         gate_cases(root)
     finally:
         shutil.rmtree(root, ignore_errors=True)
@@ -350,13 +410,6 @@ def main() -> int:
         for name in os.listdir(state) if os.path.isdir(state) else []:
             if name.startswith("test-session-"):
                 os.remove(os.path.join(state, name))
-        reports = os.path.expanduser("~/.claude/reports")
-        # index files are named after the sanitised workspace path, so the
-        # temporary directory's name arrives with its punctuation replaced
-        stem = re.sub(r"[^A-Za-z0-9]", "-", os.path.basename(root))
-        for name in os.listdir(reports) if os.path.isdir(reports) else []:
-            if stem in name:
-                os.remove(os.path.join(reports, name))
     print()
     if FAILURES:
         print(f"{len(FAILURES)} failed:")

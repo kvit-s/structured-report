@@ -52,6 +52,8 @@ import sys
 # ------------------------------------------------------------- switched on?
 
 STYLE_NAMES = {"report", "structuredreport"}
+ON = ("1", "on", "true", "yes")
+OFF = ("0", "off", "false", "no")
 
 
 def read_json(path: str) -> dict:
@@ -63,38 +65,107 @@ def read_json(path: str) -> dict:
         return {}
 
 
-def active_output_style(cwd: str) -> str:
-    """The output style in force for a directory. `/output-style` writes the
-    choice to `.claude/settings.local.json` beside the project, so walk up from
-    the working directory and take the nearest answer, falling back to the
-    user's own settings."""
+def settings_files(cwd: str):
+    """Every settings file that applies to a directory, nearest first: the two
+    Claude Code reads beside each project, walking up from the working
+    directory, and the user's own at the end."""
     here = os.path.abspath(cwd or os.getcwd())
     while True:
         for name in ("settings.local.json", "settings.json"):
-            style = read_json(os.path.join(here, ".claude", name)).get("outputStyle")
-            if isinstance(style, str) and style.strip():
-                return style
+            yield os.path.join(here, ".claude", name)
         parent = os.path.dirname(here)
         if parent == here:
             break
         here = parent
-    style = read_json(os.path.expanduser("~/.claude/settings.json")).get("outputStyle")
-    return style if isinstance(style, str) else ""
+    yield os.path.expanduser("~/.claude/settings.json")
 
 
-def convention_enabled(cwd: str, switch_var: str = "REPORT_GATE") -> bool:
-    """True when turns in this directory are expected to end with a report."""
-    switch = os.environ.get(switch_var, "auto").strip().lower()
-    if switch in ("0", "off", "false", "no"):
-        return False
-    if switch in ("1", "on", "true", "yes"):
-        return True
+def active_output_style(cwd: str) -> str:
+    """The output style in force for a directory, or "" when none is named.
+    `/output-style` writes the choice to `.claude/settings.local.json` beside
+    the project, so the nearest answer wins."""
+    for path in settings_files(cwd):
+        style = read_json(path).get("outputStyle")
+        if isinstance(style, str) and style.strip():
+            return style
+    return ""
+
+
+def style_is_report(cwd: str) -> bool:
+    """True when the active output style is this plugin's own, which means
+    Claude Code is already sending the convention and nothing need add it."""
     style = active_output_style(cwd).lower()
-    # The style may arrive as "report", "Structured report", or namespaced by a
+    # It may arrive as "report", "Structured report", or namespaced by a
     # plugin, so accept any of those spellings.
     if re.sub(r"[^a-z]", "", style) in STYLE_NAMES:
         return True
     return "report" in re.split(r"[^a-z]+", style)
+
+
+def switch_value(cwd: str, switch_var: str) -> str:
+    """What the named switch is set to: the environment first, then an `env`
+    block in the settings files above. Empty when nobody has set it."""
+    value = os.environ.get(switch_var, "").strip().lower()
+    if value:
+        return value
+    for path in settings_files(cwd):
+        env = read_json(path).get("env")
+        if isinstance(env, dict) and env.get(switch_var) is not None:
+            return str(env[switch_var]).strip().lower()
+    return ""
+
+
+def convention_enabled(cwd: str, switch_var: str = "REPORT_GATE") -> bool:
+    """True when turns in this directory are expected to end with a report.
+
+    Having the plugin installed is what switches the convention on: its hooks
+    are registered, so it applies, and removing the plugin removes it. The one
+    way to turn it off while leaving it installed is the switch, either in the
+    environment or in an `env` block in a project's `.claude/settings.json`:
+
+        {"env": {"REPORT_GATE": "off"}}
+    """
+    return switch_value(cwd, switch_var) not in OFF
+
+
+# ------------------------------------------------------- the convention text
+
+STYLE_PREAMBLE = (
+    "The structured-report convention is active in this session. It governs "
+    "how a turn ends and nothing else.\n\n")
+
+
+def style_paths() -> list[str]:
+    """Where the output style file holding the convention may be found: beside
+    the scripts in the plugin, or in the user's own output styles for a
+    hand-registered install."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    return [
+        os.path.normpath(os.path.join(here, os.pardir, "output-styles", "report.md")),
+        os.path.expanduser("~/.claude/output-styles/report.md"),
+    ]
+
+
+def style_body(path: str = "") -> str:
+    """The convention itself, read out of the output style file with its YAML
+    frontmatter stripped, so the rules are written down in exactly one place.
+    Empty when the file cannot be read."""
+    for candidate in ([path] if path else style_paths()):
+        try:
+            with open(candidate, encoding="utf-8") as f:
+                text = f.read()
+        except OSError:
+            continue
+        if text.lstrip().startswith("---"):
+            text = text.lstrip()
+            close = text.find("\n---", 3)
+            if close != -1:
+                nl = text.find("\n", close + 1)
+                text = text[nl + 1:] if nl != -1 else ""
+        text = text.strip()
+        if text:
+            return text
+    return ""
 
 
 # ------------------------------------------------------------- the index file

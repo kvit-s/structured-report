@@ -19,8 +19,8 @@ mid-line, so a trailing fragment is left alone until the batch that completes
 it. The hook returns quickly when a batch has nothing to mark, before it looks
 at any settings, because the whole message waits on it.
 
-Switched off with REPORT_CARD_DISPLAY=off, and inert unless the `report`
-output style is the active one for the directory.
+Switched off with REPORT_CARD_DISPLAY=off, in the environment or in an `env`
+block in a project's `.claude/settings.json`.
 """
 
 from __future__ import annotations

@@ -29,9 +29,10 @@ because the user already answered the one they saw. Those are printed as a
 
 When it stays out of the way
 ----------------------------
-  * the `report` output style is not the active one for this project, which is
-    how the whole convention is switched on and off (`/output-style report`);
-  * `REPORT_GATE=off` in the environment, for a scripted run;
+  * the convention is switched off, either with `REPORT_GATE=off` in the
+    environment or with an `env` block saying the same in a project's
+    `.claude/settings.json`. Having the plugin installed is otherwise the
+    whole switch: uninstall it and this stops running;
   * background tasks are still running, so the session is paused rather than
     finished;
   * this user prompt has already been blocked twice (REPORT_GATE_MAX_BLOCKS).
