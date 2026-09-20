@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""test_report_gate.py — checks for the Stop hook in report_gate.py.
+"""test_report_gate.py — checks for the turn-end hook and the rules behind it.
 
-Each case builds a small transcript by hand, runs the hook as Claude Code runs
-it (JSON on stdin, JSON on stdout) and asserts what came back: nothing means
-the turn may end, a `decision` of `block` means the model is sent back to write
-a report, and a `systemMessage` alone means the turn ends with a note to the
-user. Run it with `python3 ~/.claude/scripts/test_report_gate.py`.
+Most cases build a small Claude Code transcript by hand, run the hook the way
+Claude Code runs it (JSON on stdin, JSON on stdout) and assert what came back:
+nothing means the turn may end, a `decision` of `block` means the model is sent
+back to write a report, and a `systemMessage` alone means the turn ends with a
+note to the user.
+
+The last group is different. `core/` holds the rules and knows nothing about
+which agent is running them, and `hosts/claude_code.py` is the adapter that
+does; those cases run the same decision through a made-up second agent, whose
+tools have other names and whose card allows other numbers, to check that
+nothing in the rules is Claude Code's by accident.
 """
 
 from __future__ import annotations
@@ -25,7 +31,7 @@ SCRIPTS = HERE if os.path.exists(os.path.join(HERE, "report_gate.py")) \
 GATE = os.path.join(SCRIPTS, "report_gate.py")
 CONTEXT = os.path.join(SCRIPTS, "report_context.py")
 sys.path.insert(0, SCRIPTS)
-import report_lib as lib  # noqa: E402
+from core import checks, index as index_mod, mutations  # noqa: E402
 
 FAILURES: list[str] = []
 
@@ -267,7 +273,7 @@ def gate_cases(root: str) -> None:
     entries = [prompt("u9")] + EDIT + ask_pair(question()) + [text("Committed.")]
     run(entries, last_message="Committed.", session=session, workspace=fresh)
     run(entries, last_message="Committed.", session=session, workspace=fresh)
-    records = lib.read_index(fresh, limit=10)
+    records = index_mod.read_index(fresh, limit=10)
     check("an answered ask is indexed once, not twice",
           len(records) == 1 and records[0]["kind"] == "ask"
           and records[0]["answers"], json.dumps(records)[:300])
@@ -276,7 +282,7 @@ def gate_cases(root: str) -> None:
             "No follow-up: you asked for the rename only.")
     run([prompt("u10")] + EDIT + [text(body)], last_message=body, session=sid(),
         workspace=fresh)
-    records = lib.read_index(fresh, limit=10)
+    records = index_mod.read_index(fresh, limit=10)
     check("an ending with no follow-up is indexed too",
           len(records) == 2 and records[1]["kind"] == "done"
           and records[1]["verification"].startswith("Tests:"),
@@ -313,23 +319,23 @@ def library_cases() -> None:
         ("Remove-Item -Recurse build", False),
         ("Get-ChildItem *.go | Out-File list.txt", False),
     ]:
-        got = lib.shell_is_readonly(cmd)
+        got = mutations.shell_is_readonly(cmd)
         check(f"{cmd.splitlines()[0]!r} reads only = {expected}", got == expected,
               f"got {got}")
 
     print("the ask itself")
-    hard, soft = lib.ask_problems({"questions": [{
+    hard, soft = checks.ask_problems({"questions": [{
         "question": "Which?", "header": "Pick",
         "options": [{"label": "A (Recommended)", "description": "does a"},
                     {"label": "B", "description": "does b"}]}]})
     check("a clean ask has no problems", not hard and not soft, f"{hard} {soft}")
 
-    hard, _ = lib.ask_problems({"questions": [{
+    hard, _ = checks.ask_problems({"questions": [{
         "question": "Which?", "header": "Pick",
         "options": [{"label": "only one", "description": "x"}]}]})
     check("one option is a hard problem", any("options" in p for p in hard), str(hard))
 
-    _, soft = lib.ask_problems({"questions": [{
+    _, soft = checks.ask_problems({"questions": [{
         "question": "Which?", "header": "Pick",
         "options": [{"label": "A", "description": "does a"},
                     {"label": "B (Recommended)", "description": "does b"}]}]})
@@ -338,17 +344,17 @@ def library_cases() -> None:
 
     print("the closing prose")
     check("a question in the last lines counts",
-          lib.offers_choice_in_prose("Done.\n\nShould I commit this?") is not None)
+          checks.offers_choice_in_prose("Done.\n\nShould I commit this?") is not None)
     check("a question further up does not",
-          lib.offers_choice_in_prose(
+          checks.offers_choice_in_prose(
               "Should I have used a map? No.\n\n" + "\n".join(["filler"] * 6)
               + "\nDone: it uses a slice.\nTests: all pass.") is None)
     check("a verification line is recognised",
-          not lib.prose_problems("Done: x.\nTests: go test ./... passes."))
+          not checks.prose_problems("Done: x.\nTests: go test ./... passes."))
     check("its absence is noticed",
-          any("checked" in p for p in lib.prose_problems("Done: x.")))
+          any("checked" in p for p in checks.prose_problems("Done: x.")))
     check("saying what is unverified counts too",
-          not lib.prose_problems("Done: x.\nI did not run the suite; no network."))
+          not checks.prose_problems("Done: x.\nI did not run the suite; no network."))
 
 
 def context_cases(root: str) -> None:
@@ -388,6 +394,87 @@ def display_cases() -> None:
           disp.mark("Tests: still streaming") is None)
 
 
+def index_cases(root: str) -> None:
+    print("the index file")
+    ws = tempfile.mkdtemp(dir=root)
+    legacy = index_mod.legacy_index_path(ws)
+    os.makedirs(os.path.dirname(legacy), exist_ok=True)
+    with open(legacy, "w", encoding="utf-8") as f:
+        f.write(json.dumps({"key": "old", "headline": "an older report"}) + "\n")
+    index_mod.record_report(ws, {"key": "new", "headline": "a newer report"})
+    records = index_mod.read_index(ws, limit=10)
+    check("history left in the pre-0.3.0 place is still read",
+          [r.get("headline") for r in records]
+          == ["an older report", "a newer report"], json.dumps(records))
+    check("new reports are written outside any one agent's directory",
+          os.path.exists(index_mod.index_path(ws))
+          and ".whats-next" in index_mod.index_path(ws),
+          index_mod.index_path(ws))
+
+
+def another_agent():
+    """A second agent, invented for these tests: its tools have other names
+    and its card takes up to five options and a longer header."""
+    from core.profile import AskLimits, HostProfile
+    return HostProfile(
+        key="another-agent", display="Another agent",
+        ask_tool="ask_user_question",
+        write_tools=frozenset({"apply_patch"}),
+        shell_tools=frozenset({"shell"}),
+        ask=AskLimits(max_questions=3, min_options=2, max_options=5,
+                      header_max=20))
+
+
+def portability_cases() -> None:
+    print("the rules, run as another agent would")
+    from core import convention, decide as decide_mod
+    from core.turn import Event, ToolResult, ToolUse
+    from hosts import load as load_host
+
+    other = another_agent()
+    claude = load_host().PROFILE
+
+    changed = [Event(role="assistant",
+                     tool_uses=[ToolUse("p1", "apply_patch", {"path": "x.go"})]),
+               Event(role="user", tool_results=[ToolResult("p1")])]
+    verdict = decide_mod.decide(other, changed, "Done: moved the loop.")
+    check("a write tool this plugin has never heard of counts as work done",
+          verdict.action == "block" and "ask_user_question" in verdict.reason,
+          verdict.reason[:120])
+    check("the same turn is nothing to Claude Code, whose tools are elsewhere",
+          decide_mod.decide(claude, changed, "Done: moved the loop.").action == "allow")
+
+    looked = [Event(role="assistant",
+                    tool_uses=[ToolUse("s1", "shell", {"command": "git status"})]),
+              Event(role="user", tool_results=[ToolResult("s1")])]
+    check("its shell tool is judged by the command, like any other",
+          decide_mod.decide(other, looked, "Nothing to change.").action == "allow")
+
+    card = {"questions": [{"question": "How to proceed?",
+                           "header": "Next steps here",
+                           "options": [
+                               {"label": "Commit (Recommended)", "description": "Commit it."},
+                               {"label": "Add tests", "description": "Tests first."},
+                               {"label": "Stop here", "description": "Leave it."}]}]}
+    answered = changed + [
+        Event(role="assistant", text="Committed.",
+              tool_uses=[ToolUse("q1", "ask_user_question", card)]),
+        Event(role="user", tool_results=[ToolResult(
+            "q1", False, {"answers": {"How to proceed?": "Commit (Recommended)"}})])]
+    verdict = decide_mod.decide(other, answered, "Committed.")
+    check("its own question tool ends the turn cleanly",
+          verdict.action == "allow" and verdict.kind == "ask" and not verdict.problems,
+          f"{verdict.action} {verdict.problems}")
+    hard, soft = checks.ask_problems(card, claude.ask, expect_stop_option=True)
+    check("the header limit comes from the profile, not from a constant",
+          not hard and any("15 characters" in p for p in soft), str(soft))
+
+    body = convention.convention_text(other)
+    check("the convention tells the model to call the tool that exists there",
+          "ask_user_question" in body and "AskUserQuestion" not in body,
+          body[:120])
+
+
 def main() -> int:
     root = tempfile.mkdtemp(prefix="report-gate-tests-")
     # The switch and the output style are both read by walking up from the
@@ -404,6 +491,8 @@ def main() -> int:
         display_cases()
         context_cases(root)
         gate_cases(root)
+        index_cases(root)
+        portability_cases()
     finally:
         shutil.rmtree(root, ignore_errors=True)
         state = os.path.join(tempfile.gettempdir(), "report_gate_state")

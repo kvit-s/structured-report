@@ -72,8 +72,11 @@ def main() -> None:
         if os.environ.get("REPORT_CARD_DISPLAY", "").strip().lower() in ("0", "off", "false", "no"):
             return
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        import report_lib as lib
-        if not lib.convention_enabled(payload.get("cwd") or os.getcwd(), "REPORT_CARD_DISPLAY"):
+        from core import config
+        from hosts import load as load_host
+        host = load_host()
+        cwd = payload.get("cwd") or os.getcwd()
+        if not config.convention_enabled(host.settings_maps(cwd), "REPORT_CARD_DISPLAY"):
             return
         print(json.dumps({"hookSpecificOutput": {
             "hookEventName": "MessageDisplay", "displayContent": marked}}))

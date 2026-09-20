@@ -150,7 +150,8 @@ directory having been removed before it could be loaded.
 
 Windows is where the copy fails, because it will not rename or delete a folder
 while any file under it is open. Until 0.1.2 this plugin caused that itself:
-importing `report_lib` left a `__pycache__` folder inside the installed copy,
+importing the plugin's own modules left a `__pycache__` folder inside the
+installed copy,
 and a hook's Python holds those files whenever it runs, which with a Stop hook
 and a display hook is most of the time. `hooks/python.sh` now exports
 `PYTHONDONTWRITEBYTECODE=1`, so nothing of this plugin is written there any
@@ -210,10 +211,12 @@ Nothing is duplicated. The report is the `AskUserQuestion` call in the session
 transcript, which Claude Code already writes.
 
 For reading back and for feeding a changelog, the Stop hook also appends one
-line per finished report to `~/.claude/reports/<project>.jsonl`: the time, the
-session, the git branch, the headline, the verification line, and the questions
-with your answers. A turn that stops twice is recorded once. Deleting the file
-loses nothing that matters.
+line per finished report to `~/.whats-next/reports/<project>.jsonl`: the time,
+the session, the agent, the git branch, the headline, the verification line, and
+the questions with your answers. A turn that stops twice is recorded once.
+Deleting the file loses nothing that matters. Before 0.3.0 this index was at
+`~/.claude/reports/<project>.jsonl`, which `/report history` still reads when it
+is there, so older history stays visible.
 
 ## Requirements
 
@@ -241,6 +244,14 @@ Bash, register the hooks by hand in `settings.json` instead, calling
 | `REPORT_GATE_MAX_BLOCKS` | How many times one prompt may be blocked before the hook gives up. Default 2. |
 | `REPORT_GATE_MUTATING_TOOLS` | Extra tool names to count as work done, space or comma separated. |
 
+Each of these can be set in the environment, in an `env` block in a project's
+`.claude/settings.json`, or in `~/.whats-next/config.json` for a machine-wide
+answer that does not belong to any one agent:
+
+```json
+{ "REPORT_GATE": "off" }
+```
+
 ## Tests
 
 ```
@@ -251,9 +262,11 @@ Builds transcripts by hand, runs the hook the way Claude Code runs it — JSON o
 stdin, JSON on stdout — and checks what came back: every block and allow path,
 the block budget, the index, the screen markers, the text the SessionStart hook
 delivers, the switch resolving across nested directories, and the classifier that
-decides whether a shell or PowerShell command changed anything. The suite gives
-itself a temporary home directory, so the settings on the machine running it
-cannot change the answers.
+decides whether a shell or PowerShell command changed anything. A last group runs
+the same rules through a made-up second agent, whose tools have other names and
+whose card allows other numbers, which is what keeps Claude Code's names out of
+`core/`. The suite gives itself a temporary home directory, so the settings on
+the machine running it cannot change the answers.
 
 ## Layout
 
@@ -264,15 +277,35 @@ plugins/whats-next/
   .claude-plugin/plugin.json           the manifest
   hooks/hooks.json                     SessionStart, Stop and MessageDisplay
   hooks/python.sh                      finds an interpreter, execs it
-  scripts/report_lib.py                transcript parsing, checks, the card
   scripts/report_context.py            the SessionStart hook
   scripts/report_gate.py               the Stop hook
   scripts/report_display.py            the MessageDisplay hook
   scripts/report_last.py               what /report runs
+  scripts/core/                        the rules, which no agent owns
+    profile.py                         what an agent calls its tools
+    turn.py                            one turn, as events and tool calls
+    mutations.py                       did this turn change anything
+    checks.py                          what a well-formed ending looks like
+    decide.py                          the judgement the Stop hook makes
+    messages.py                        what the model is told when sent back
+    convention.py                      the text handed to the model
+    card.py                            drawing a report back as text
+    index.py                           one line per report, per project
+    config.py                          where the switches are read from
+  scripts/hosts/claude_code.py         transcripts, settings and hook JSON
   skills/report/SKILL.md               the /report command
   output-styles/report.md              the convention itself, read by the hook
   tests/test_report_gate.py
 ```
+
+The split between `core/` and `hosts/` is there because the same convention
+would suit other coding agents. Everything an agent decides for itself — where
+it writes a session record and what that record looks like, which of its tools
+change files, what its question tool is called and what one card may hold, the
+JSON its hooks receive and may print — is in the adapter, and the rules read it
+from a profile. Porting to another agent means writing a second adapter rather
+than a second copy of the rules; `WHATS_NEXT_HOST` names which one is loaded,
+and `claude_code` is the default and the only one shipped.
 
 ## Licence
 

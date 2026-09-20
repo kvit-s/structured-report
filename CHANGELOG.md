@@ -5,6 +5,44 @@ Every version of the What's Next plugin, newest first. The version is the
 also what `claude plugin update` compares against to decide whether a machine
 needs new files.
 
+## 0.3.0 — 2026-09-20
+
+**The rules and the agent are now separate code.** Everything the plugin knows
+about how a turn should end — whether the turn changed anything, what a
+well-formed card looks like, what the model is told when it is sent back, how a
+report is drawn again — moved into `scripts/core/`, which names no tool and
+opens no file. Everything that is true of Claude Code in particular moved into
+`scripts/hosts/claude_code.py`: the transcript format and where transcripts
+live, the settings files, which tools count as writing, the name
+`AskUserQuestion` and the twelve-character header its card draws, and the JSON
+its hooks are handed and may print. `scripts/report_lib.py` is gone, with its
+contents split between the two.
+
+Nothing about the plugin's behaviour in Claude Code changed. The same turns are
+blocked for the same reasons with the same wording, the four switches work as
+before, and `/report` prints what it printed.
+
+The reason for the split is that the convention suits other coding agents, and
+several of them can now run it: Gemini CLI has a blocking `AfterAgent` hook and
+an `ask_user` tool, Codex has a `Stop` hook and `ask_user_question`, Grok Build
+and OpenCode have the question tool without a turn-end hook that can send the
+model back. Each of those needs an adapter of its own — a session-record reader,
+a tool profile, and the JSON its hooks speak — and none of them needs a second
+copy of the rules. `WHATS_NEXT_HOST` picks the adapter; `claude_code` is the
+default and the only one shipped so far.
+
+**The index of reports moved to `~/.whats-next/reports/<project>.jsonl`,** out
+of Claude Code's directory, because a machine may run several agents over the
+same repository and the history reads better in one place. Each record now says
+which agent produced it. `/report history` still reads anything left in the old
+`~/.claude/reports/<project>.jsonl`, so nothing has to be migrated; new lines
+are written to the new place only.
+
+**The switches can also be set in `~/.whats-next/config.json`,** as
+`{"REPORT_GATE": "off"}`, for a machine-wide answer that belongs to no
+particular agent. The environment still wins, and a project's
+`.claude/settings.json` still beats the new file.
+
 ## 0.2.0 — 2026-09-20
 
 **The install name changed, which breaks existing installs.** The plugin was

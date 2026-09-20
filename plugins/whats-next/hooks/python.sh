@@ -25,8 +25,8 @@
 # in the console code page, which fails on a path or a transcript holding any
 # character outside it.
 #
-# PYTHONDONTWRITEBYTECODE=1 goes with it, so that importing report_lib never
-# leaves a __pycache__ folder inside the copy of the plugin Claude Code runs.
+# PYTHONDONTWRITEBYTECODE=1 goes with it, so that importing the plugin's own
+# modules never leaves a __pycache__ folder inside the copy Claude Code runs.
 # That copy lives under ~/.claude/plugins/cache/ and Claude Code refreshes it
 # while sessions are open; on Windows a file that is open stops its folder being
 # renamed or deleted, so a .pyc of ours held by a running hook can make the
