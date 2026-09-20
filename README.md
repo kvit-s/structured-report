@@ -126,6 +126,57 @@ claude plugin uninstall structured-report@kvit-s
 claude plugin install structured-report@kvit-s
 ```
 
+## When it stops running on Windows
+
+The failure looks like the plugin having been switched off: turns stop ending
+with a question, the Stop hook never fires, `/report` is gone, and nothing says
+why. `/plugin` still lists it as installed, and reinstalling it brings it back.
+
+What happened is that the whole plugin failed to load for that session, so none
+of its parts exist. Claude Code does not run an installed plugin from the clone
+of this repository under `~/.claude/plugins/marketplaces/kvit-s/`. It copies the
+plugin into `~/.claude/plugins/cache/kvit-s/structured-report/<version>/` and
+runs it from there. When it cannot refresh that copy it does not fall back to
+the clone; it loads nothing from the plugin and writes the reason to the debug
+log, where its own wording is that reinstalling the plugin retries the copy.
+A once-a-day cleanup of cached plugin folders that no running session has marked
+as in use can take the folder away as well, which the log reports as the
+directory having been removed before it could be loaded.
+
+Windows is where the copy fails, because it will not rename or delete a folder
+while any file under it is open. Until 0.1.2 this plugin caused that itself:
+importing `report_lib` left a `__pycache__` folder inside the installed copy,
+and a hook's Python holds those files whenever it runs, which with a Stop hook
+and a display hook is most of the time. `hooks/python.sh` now exports
+`PYTHONDONTWRITEBYTECODE=1`, so nothing of this plugin is written there any
+more. A virus scanner, a file indexer or an editor holding a file in that folder
+has the same effect, and nothing here can prevent that.
+
+The hooks can also stop working without any of that. They run `bash
+hooks/python.sh`, and on a machine with WSL installed
+`C:\Windows\System32\bash.exe` is always on the path, while Git's `bash.exe`
+sits in `C:\Program Files\Git\bin`, which Git adds to the path only under one
+of its setup options. Which one a session gets depends on the path of the
+terminal Claude Code was started from, so the same install can work in one
+window and fail in the next — with a visible error this time rather than
+silence. `where.exe bash` says which one wins, putting Git's `bin` folder ahead
+of `System32` in `PATH` settles it, and registering the hooks by hand as
+described under [Requirements](#requirements) avoids `bash` altogether.
+
+Four commands tell these apart. Run them while it is broken, before reinstalling:
+
+```powershell
+dir "$env:USERPROFILE\.claude\plugins\cache\kvit-s\structured-report"
+dir "$env:USERPROFILE\.claude\plugins\marketplaces\kvit-s"
+where.exe bash
+claude --debug
+```
+
+A missing or half-empty version folder in the first is the copy having failed.
+A folder with `hooks\hooks.json` in it, together with `System32\bash.exe` from
+the third, points at `bash` instead. `claude --debug` prints what the loader
+decided at startup, and the lines to look for name this plugin.
+
 ## What a turn looks like afterwards
 
 > Reordering works and survives a restart.

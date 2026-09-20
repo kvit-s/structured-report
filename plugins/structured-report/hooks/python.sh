@@ -25,12 +25,21 @@
 # in the console code page, which fails on a path or a transcript holding any
 # character outside it.
 #
+# PYTHONDONTWRITEBYTECODE=1 goes with it, so that importing report_lib never
+# leaves a __pycache__ folder inside the copy of the plugin Claude Code runs.
+# That copy lives under ~/.claude/plugins/cache/ and Claude Code refreshes it
+# while sessions are open; on Windows a file that is open stops its folder being
+# renamed or deleted, so a .pyc of ours held by a running hook can make the
+# refresh fail, and then nothing of this plugin loads until it is installed
+# again. Nothing here needs the speed a cached .pyc buys.
+#
 # When no Python is found the hook says so once through a systemMessage, which
 # the Stop event shows the user, and then keeps quiet rather than complaining
 # every turn.
 
 set -u
 export PYTHONUTF8=1
+export PYTHONDONTWRITEBYTECODE=1
 
 if [ "$#" -lt 1 ]; then
     echo "python.sh: no script to run" >&2
