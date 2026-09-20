@@ -126,6 +126,11 @@ claude plugin uninstall whats-next@kvit
 claude plugin install whats-next@kvit
 ```
 
+[CHANGELOG.md](CHANGELOG.md) says what each version changed. Version 0.2.0
+renamed the plugin from `structured-report` and the marketplace from `kvit-s`,
+so a machine that installed either of those needs the steps given there rather
+than an ordinary update.
+
 ## When it stops running on Windows
 
 The failure looks like the plugin having been switched off: turns stop ending
@@ -253,6 +258,7 @@ cannot change the answers.
 ## Layout
 
 ```
+CHANGELOG.md                           what changed in each version
 .claude-plugin/marketplace.json        the catalogue
 plugins/whats-next/
   .claude-plugin/plugin.json           the manifest
