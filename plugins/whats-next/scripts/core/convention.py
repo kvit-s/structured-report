@@ -9,14 +9,19 @@ installing the plugin the whole switch.
 `convention_text` returns it with the YAML frontmatter stripped. When the host
 calls its question tool something other than `AskUserQuestion` — Codex and
 Grok Build use `ask_user_question`, Gemini CLI uses `ask_user`, OpenCode calls
-it `question` — the name is substituted on the way out, so the model is told
-to call a tool that exists where it is running.
+it `question` — the name is substituted on the way out and a closing sentence
+gives that tool's own limits, so the model is told to call something that
+exists where it is running and to stay inside what it accepts. The file itself
+is left alone, because Claude Code reads it directly when somebody selects the
+style, and a template with placeholders in it would reach the model unfilled.
 """
 
 from __future__ import annotations
 
 import os
 import re
+
+from .profile import AskLimits
 
 CLAUDE_ASK_TOOL = "AskUserQuestion"
 
@@ -59,9 +64,26 @@ def style_body(path: str = "") -> str:
     return ""
 
 
+def host_note(profile) -> str:
+    """A sentence naming the tool and the numbers that apply here, for any
+    agent whose card is not the one the file was written about."""
+    limits = profile.ask
+    if profile.ask_tool == CLAUDE_ASK_TOOL and limits == AskLimits():
+        return ""
+    return (
+        f"\n\nThe numbers above are Claude Code's. In {profile.display} the tool "
+        f"is `{profile.ask_tool}`, and one call takes at most "
+        f"{limits.max_questions} questions, each with {limits.min_options} to "
+        f"{limits.max_options} options and a header of at most "
+        f"{limits.header_max} characters."
+    )
+
+
 def convention_text(profile, path: str = "") -> str:
-    """The convention with the host's own tool name in it."""
+    """The convention with the host's own tool name and limits in it."""
     body = style_body(path)
-    if body and profile.ask_tool != CLAUDE_ASK_TOOL:
+    if not body:
+        return ""
+    if profile.ask_tool != CLAUDE_ASK_TOOL:
         body = re.sub(re.escape(CLAUDE_ASK_TOOL), profile.ask_tool, body)
-    return body
+    return body + host_note(profile)

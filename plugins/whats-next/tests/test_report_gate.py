@@ -475,6 +475,91 @@ def portability_cases() -> None:
           body[:120])
 
 
+# --------------------------------------------------------------- Gemini CLI
+
+def gemini(script: str, payload: dict, env: dict | None = None) -> dict:
+    """One of the hooks, run the way the Gemini CLI extension runs it."""
+    proc = subprocess.run(
+        [sys.executable, os.path.join(SCRIPTS, script), "--host", "gemini_cli"],
+        input=json.dumps(payload), capture_output=True, text=True,
+        env={**os.environ, **(env or {})})
+    if proc.returncode != 0:
+        return {"_exit": proc.returncode, "_stderr": proc.stderr}
+    out = proc.stdout.strip()
+    return json.loads(out) if out else {}
+
+
+def gemini_cases(root: str) -> None:
+    print("Gemini CLI")
+    ws = tempfile.mkdtemp(dir=root)
+
+    out = gemini("report_context.py", {
+        "cwd": ws, "session_id": "test-session-g0",
+        "hook_event_name": "SessionStart", "source": "startup"})
+    body = (out.get("hookSpecificOutput") or {}).get("additionalContext", "")
+    check("the convention arrives naming Gemini's own tool and limits",
+          "ask_user" in body and "AskUserQuestion" not in body
+          and "16 characters" in body, body[-160:])
+
+    def prompt_event(session: str, text: str = "do the thing") -> dict:
+        return {"cwd": ws, "session_id": session, "hook_event_name": "BeforeAgent",
+                "timestamp": "2026-09-20T10:00:00Z", "prompt": text}
+
+    def tool_event(session: str, name: str, tool_input: dict, response=None) -> dict:
+        return {"cwd": ws, "session_id": session, "hook_event_name": "AfterTool",
+                "timestamp": "2026-09-20T10:00:01Z", "tool_name": name,
+                "tool_input": tool_input, "tool_response": response}
+
+    def turn_end(session: str, text: str) -> dict:
+        return {"cwd": ws, "session_id": session, "hook_event_name": "AfterAgent",
+                "timestamp": "2026-09-20T10:00:02Z", "prompt": "do the thing",
+                "prompt_response": text, "stop_hook_active": False}
+
+    session = "test-session-g1"
+    gemini("report_record.py", prompt_event(session))
+    gemini("report_record.py", tool_event(session, "write_file",
+                                          {"file_path": "x.go", "content": "package x"}))
+    out = gemini("report_gate.py", turn_end(session, "Done: wrote the file."))
+    check("a turn that wrote a file and offered nothing is denied",
+          out.get("decision") == "deny" and "ask_user" in out.get("reason", ""),
+          json.dumps(out)[:200])
+
+    session = "test-session-g2"
+    gemini("report_record.py", prompt_event(session))
+    gemini("report_record.py", tool_event(
+        session, "run_shell_command", {"command": "git status && ls"}))
+    out = gemini("report_gate.py", turn_end(session, "Nothing needed changing."))
+    check("a turn that only looked may end", out == {}, json.dumps(out)[:200])
+
+    session = "test-session-g3"
+    card = {"questions": [{
+        "question": "How to proceed?", "header": "Next", "type": "choice",
+        "options": [
+            {"label": "Commit (Recommended)", "description": "Commit the change now."},
+            {"label": "Add tests", "description": "Write tests first, then commit."},
+            {"label": "Stop here", "description": "Leave it; nothing more runs."}]}]}
+    gemini("report_record.py", prompt_event(session))
+    gemini("report_record.py", tool_event(session, "replace",
+                                          {"file_path": "x.go", "old": "a", "new": "b"}))
+    gemini("report_record.py", tool_event(
+        session, "ask_user", card, '{"answers": {"0": "Commit (Recommended)"}}'))
+    out = gemini("report_gate.py", turn_end(session, "Committed."))
+    check("a turn that ended with a card ends silently", out == {}, json.dumps(out)[:200])
+
+    records = index_mod.read_index(ws, limit=10)
+    last = records[-1] if records else {}
+    check("the card and the answer are indexed, keyed by the question",
+          last.get("kind") == "ask" and last.get("host") == "gemini-cli"
+          and last.get("answers") == {"How to proceed?": "Commit (Recommended)"},
+          json.dumps(last)[:300])
+
+    out = gemini("report_gate.py", turn_end("test-session-g4",
+                                            "Done. Should I commit this?"))
+    check("a choice left in prose is denied even with nothing recorded",
+          out.get("decision") == "deny" and "nothing to click" in out.get("reason", ""),
+          json.dumps(out)[:200])
+
+
 def main() -> int:
     root = tempfile.mkdtemp(prefix="report-gate-tests-")
     # The switch and the output style are both read by walking up from the
@@ -493,6 +578,7 @@ def main() -> int:
         gate_cases(root)
         index_cases(root)
         portability_cases()
+        gemini_cases(root)
     finally:
         shutil.rmtree(root, ignore_errors=True)
         state = os.path.join(tempfile.gettempdir(), "report_gate_state")

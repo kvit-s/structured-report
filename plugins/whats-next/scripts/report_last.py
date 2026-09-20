@@ -78,6 +78,7 @@ def print_history(cwd: str, limit: int, as_json: bool) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--session", default="")
+    ap.add_argument("--host", default="")
     ap.add_argument("--cwd", default=os.getcwd())
     ap.add_argument("-n", "--count", type=int, default=1)
     ap.add_argument("--json", action="store_true")
@@ -88,7 +89,7 @@ def main() -> int:
     if args.history is not None:
         return print_history(args.cwd, args.history, args.json)
 
-    host = load_host()
+    host = load_host(args.host)
     session = args.session.strip()
     if "$" in session or "{" in session:   # placeholder arrived unsubstituted
         session = ""

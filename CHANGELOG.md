@@ -5,6 +5,40 @@ Every version of the What's Next plugin, newest first. The version is the
 also what `claude plugin update` compares against to decide whether a machine
 needs new files.
 
+## 0.4.0 — 2026-09-20
+
+**It runs in Gemini CLI as well.** `gemini extensions install
+https://github.com/kvitapp/kvit-plugins.git` registers four hooks there:
+`SessionStart` hands the model the convention with Gemini's own tool name and
+limits in it, `AfterAgent` is the gate, and `BeforeAgent` and `AfterTool`
+write down what the turn did. The card is Gemini's `ask_user`, whose header is
+sixteen characters rather than twelve. Blocking is spelled `{"decision":
+"deny", "reason": …}` there, which rejects the response the model just gave
+and sends the reason back as a new prompt.
+
+The recording hooks exist because Gemini hands every hook a `transcript_path`
+that is stubbed and arrives empty, so there is no session record to read the
+turn out of. `core/journal.py` keeps one instead, at
+`~/.whats-next/sessions/<project>/<session>.jsonl`: a line per prompt and per
+finished tool call, with tool inputs over 20,000 characters trimmed out, and
+anything a fortnight old removed when a new session starts writing. If Gemini
+CLI fills `transcript_path` in later, reading its own transcript would replace
+two functions in the adapter and nothing else.
+
+Two things are missing there compared with Claude Code. There is no `/report`
+command, because a Gemini custom command cannot reliably find the extension's
+own directory, so the history is read by running `report_last.py --history`
+directly. And the card comes back without the prose that preceded it, since
+Gemini hands over the response text only after the turn has finished.
+
+None of this changes Claude Code, where the plugin behaves exactly as it did
+in 0.3.0. Hooks now take `--host <name>` to say which adapter to load, which
+is how the Gemini extension points the same scripts at its own adapter;
+without it they load Claude Code's, as before.
+
+The Gemini side is tested against payloads of the shape its documentation
+gives, not yet against an installed Gemini CLI.
+
 ## 0.3.0 — 2026-09-20
 
 **The rules and the agent are now separate code.** Everything the plugin knows

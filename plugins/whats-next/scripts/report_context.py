@@ -39,7 +39,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
     from core import config, convention
-    from hosts import load as load_host
+    from hosts import from_argv
 except Exception:
     sys.exit(0)  # library missing or broken: never disrupt a session
 
@@ -52,7 +52,7 @@ def main() -> None:
     if not isinstance(payload, dict):
         payload = {}
 
-    host = load_host()
+    host = from_argv()
     cwd = payload.get("cwd") or os.getcwd()
     if not config.convention_enabled(host.settings_maps(cwd), "REPORT_GATE"):
         return

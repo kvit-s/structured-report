@@ -1,0 +1,60 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "whats-next-convention",
+            "type": "command",
+            "command": "bash \"${extensionPath}${/}plugins${/}whats-next${/}hooks${/}python.sh\" \"${extensionPath}${/}plugins${/}whats-next${/}scripts${/}report_context.py\" --host gemini_cli",
+            "timeout": 10000,
+            "description": "Hands the model the convention at the start of a session"
+          }
+        ]
+      }
+    ],
+    "BeforeAgent": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "whats-next-record-prompt",
+            "type": "command",
+            "command": "bash \"${extensionPath}${/}plugins${/}whats-next${/}hooks${/}python.sh\" \"${extensionPath}${/}plugins${/}whats-next${/}scripts${/}report_record.py\" --host gemini_cli",
+            "timeout": 5000,
+            "description": "Marks where this turn begins"
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "whats-next-record-tool",
+            "type": "command",
+            "command": "bash \"${extensionPath}${/}plugins${/}whats-next${/}hooks${/}python.sh\" \"${extensionPath}${/}plugins${/}whats-next${/}scripts${/}report_record.py\" --host gemini_cli",
+            "timeout": 5000,
+            "description": "Writes down what the turn did, since the transcript is empty"
+          }
+        ]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "whats-next-gate",
+            "type": "command",
+            "command": "bash \"${extensionPath}${/}plugins${/}whats-next${/}hooks${/}python.sh\" \"${extensionPath}${/}plugins${/}whats-next${/}scripts${/}report_gate.py\" --host gemini_cli",
+            "timeout": 30000,
+            "description": "Checks how the turn ended"
+          }
+        ]
+      }
+    ]
+  }
+}

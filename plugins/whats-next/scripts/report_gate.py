@@ -45,7 +45,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
     from core import checks, config, decide as decide_mod, index as index_mod
     from core import turn as turn_mod
-    from hosts import load as load_host
+    from hosts import from_argv
 except Exception:
     sys.exit(0)  # the library is missing or broken: never disrupt a turn
 
@@ -120,7 +120,7 @@ def main() -> None:
     except Exception:
         sys.exit(0)
 
-    host = load_host()
+    host = from_argv()
     profile = host.PROFILE
     stop = host.stop_input(payload)
 
@@ -139,7 +139,11 @@ def main() -> None:
 
     turn: list = []
     prompt = None
-    for _ in range(POLL_ATTEMPTS):
+    # Claude Code writes its transcript asynchronously, so the turn may not be
+    # on disk yet; a host whose record this plugin keeps itself has nothing to
+    # wait for and says so.
+    attempts = POLL_ATTEMPTS if getattr(host, "poll_for_turn", True) else 1
+    for _ in range(attempts):
         prompt, turn = turn_mod.split_turn(host.read_events(source))
         if turn:
             break

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import sys
 
 DEFAULT = "claude_code"
 
@@ -21,3 +22,17 @@ DEFAULT = "claude_code"
 def load(key: str = ""):
     name = (key or os.environ.get("WHATS_NEXT_HOST") or DEFAULT).strip()
     return importlib.import_module("hosts." + name.replace("-", "_"))
+
+
+def from_argv(argv: list[str] | None = None):
+    """The adapter named by `--host name` on the command line, which is how a
+    hook says which agent invoked it. Agents differ in whether they run a hook
+    command through a shell, so an argument is safer than an environment
+    variable set in front of it."""
+    args = list(argv if argv is not None else sys.argv[1:])
+    for i, arg in enumerate(args):
+        if arg == "--host" and i + 1 < len(args):
+            return load(args[i + 1])
+        if arg.startswith("--host="):
+            return load(arg.split("=", 1)[1])
+    return load()
