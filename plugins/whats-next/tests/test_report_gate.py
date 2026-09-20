@@ -358,7 +358,7 @@ def context_cases(root: str) -> None:
     check("the convention is delivered when no output style is named",
           "How a turn ends" in body and "AskUserQuestion" in body, body[:140])
     check("it says what it is before the rules",
-          body.startswith("The structured-report convention"), body[:80])
+          body.startswith("The What's Next convention"), body[:80])
     check("the frontmatter is stripped off",
           "keep-coding-instructions" not in body and not body.lstrip().startswith("---"),
           body[:80])

@@ -131,7 +131,7 @@ def convention_enabled(cwd: str, switch_var: str = "REPORT_GATE") -> bool:
 # ------------------------------------------------------- the convention text
 
 STYLE_PREAMBLE = (
-    "The structured-report convention is active in this session. It governs "
+    "The What's Next convention is active in this session. It governs "
     "how a turn ends and nothing else.\n\n")
 
 

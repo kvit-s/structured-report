@@ -1,14 +1,34 @@
 {
-  "name": "kvit-s",
+  "name": "kvit",
   "owner": {
-    "name": "kvit-s"
+    "name": "kvit",
+    "url": "https://kvit.app"
   },
-  "description": "Plugins by kvit-s for Claude Code",
+  "description": "Claude Code plugins by kvit",
+  "renames": {
+    "structured-report": "whats-next"
+  },
   "plugins": [
     {
-      "name": "structured-report",
-      "source": "./plugins/structured-report",
-      "description": "End a working turn with a headline, how it was checked, and an AskUserQuestion offering what to do next"
+      "name": "whats-next",
+      "displayName": "What's Next",
+      "source": "./plugins/whats-next",
+      "description": "Ends a working turn with a short report and a card of next steps you pick with one key, so you never type \"what's next\" again.",
+      "category": "productivity",
+      "keywords": [
+        "hooks",
+        "output-style",
+        "askuserquestion",
+        "workflow",
+        "productivity"
+      ],
+      "author": {
+        "name": "kvit",
+        "url": "https://kvit.app"
+      },
+      "homepage": "https://blog.kvit.app",
+      "repository": "https://github.com/kvit-s/structured-report",
+      "license": "MIT"
     }
   ]
 }

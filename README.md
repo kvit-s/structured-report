@@ -1,4 +1,4 @@
-# structured-report
+# What's Next
 
 A Claude Code plugin. It changes how a turn ends: instead of a paragraph saying
 the work is done, a turn that edited files or ran commands finishes with a short
@@ -68,7 +68,7 @@ what Claude sees keep the original text.
 
 ```
 /plugin marketplace add https://github.com/kvit-s/structured-report.git
-/plugin install structured-report@kvit-s
+/plugin install whats-next@kvit
 ```
 
 That is all. The next session starts with the convention in force, and removing
@@ -98,13 +98,13 @@ them.
 ## Updating
 
 Installing copies the plugin's files into
-`~/.claude/plugins/cache/<marketplace>/structured-report/<version>/`, and that
+`~/.claude/plugins/cache/<marketplace>/whats-next/<version>/`, and that
 copy stays at the commit it was taken from until it is updated. On a machine
 where the plugin is already installed, two commands bring it up to date:
 
 ```
-claude plugin marketplace update kvit-s
-claude plugin update structured-report@kvit-s
+claude plugin marketplace update kvit
+claude plugin update whats-next@kvit
 ```
 
 The first pulls this repository into the local clone of the marketplace; without
@@ -113,7 +113,7 @@ the update says `Restart to apply changes` and a running session keeps the files
 it started with. Inside a session, `/plugin` offers the same actions.
 
 The second command decides by the `version` field in
-`plugins/structured-report/.claude-plugin/plugin.json`. If that number has not
+`plugins/whats-next/.claude-plugin/plugin.json`. If that number has not
 changed since the machine installed the plugin, it answers `already at the
 latest version` and copies nothing, however many commits were pushed in the
 meantime. Bump it with every change other machines should pick up. When a change
@@ -121,9 +121,9 @@ did go out without a bump, reinstalling takes the current files whatever the
 version says:
 
 ```
-claude plugin marketplace update kvit-s
-claude plugin uninstall structured-report@kvit-s
-claude plugin install structured-report@kvit-s
+claude plugin marketplace update kvit
+claude plugin uninstall whats-next@kvit
+claude plugin install whats-next@kvit
 ```
 
 ## When it stops running on Windows
@@ -134,8 +134,8 @@ why. `/plugin` still lists it as installed, and reinstalling it brings it back.
 
 What happened is that the whole plugin failed to load for that session, so none
 of its parts exist. Claude Code does not run an installed plugin from the clone
-of this repository under `~/.claude/plugins/marketplaces/kvit-s/`. It copies the
-plugin into `~/.claude/plugins/cache/kvit-s/structured-report/<version>/` and
+of this repository under `~/.claude/plugins/marketplaces/kvit/`. It copies the
+plugin into `~/.claude/plugins/cache/kvit/whats-next/<version>/` and
 runs it from there. When it cannot refresh that copy it does not fall back to
 the clone; it loads nothing from the plugin and writes the reason to the debug
 log, where its own wording is that reinstalling the plugin retries the copy.
@@ -166,8 +166,8 @@ described under [Requirements](#requirements) avoids `bash` altogether.
 Four commands tell these apart. Run them while it is broken, before reinstalling:
 
 ```powershell
-dir "$env:USERPROFILE\.claude\plugins\cache\kvit-s\structured-report"
-dir "$env:USERPROFILE\.claude\plugins\marketplaces\kvit-s"
+dir "$env:USERPROFILE\.claude\plugins\cache\kvit\whats-next"
+dir "$env:USERPROFILE\.claude\plugins\marketplaces\kvit"
 where.exe bash
 claude --debug
 ```
@@ -239,7 +239,7 @@ Bash, register the hooks by hand in `settings.json` instead, calling
 ## Tests
 
 ```
-python3 plugins/structured-report/tests/test_report_gate.py
+python3 plugins/whats-next/tests/test_report_gate.py
 ```
 
 Builds transcripts by hand, runs the hook the way Claude Code runs it — JSON on
@@ -254,7 +254,7 @@ cannot change the answers.
 
 ```
 .claude-plugin/marketplace.json        the catalogue
-plugins/structured-report/
+plugins/whats-next/
   .claude-plugin/plugin.json           the manifest
   hooks/hooks.json                     SessionStart, Stop and MessageDisplay
   hooks/python.sh                      finds an interpreter, execs it

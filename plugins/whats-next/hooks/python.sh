@@ -77,9 +77,9 @@ for candidate in python3 python "py -3"; do
 done
 
 # Nothing usable. Say it once per machine, then stay silent.
-marker="${TMPDIR:-/tmp}/structured-report-no-python"
+marker="${TMPDIR:-/tmp}/whats-next-no-python"
 if [ ! -e "$marker" ]; then
     : > "$marker" 2>/dev/null || true
-    printf '%s\n' '{"systemMessage": "structured-report: no Python 3.8 or later found (tried python3, python, py -3), so the report hooks are not running. Install Python or point one of those names at it."}'
+    printf '%s\n' '{"systemMessage": "whats-next: no Python 3.8 or later found (tried python3, python, py -3), so the report hooks are not running. Install Python or point one of those names at it."}'
 fi
 exit 0

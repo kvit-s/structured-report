@@ -1,6 +1,6 @@
 ---
 name: report
-description: Structured report — end a working turn with a headline, how it was checked, and an AskUserQuestion offering what to do next
+description: What's Next — end a working turn with a headline, how it was checked, and an AskUserQuestion offering what to do next
 keep-coding-instructions: true
 ---
 
