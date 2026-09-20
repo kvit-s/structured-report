@@ -60,18 +60,21 @@ usable() {
         >/dev/null 2>&1
 }
 
-run_with() {
-    if usable "$@"; then
-        exec "$@" "$script" ${1+"${passthrough[@]}"}
+# $candidate is left unquoted on purpose, so that "py -3" splits into a command
+# and its argument; the three values are literals in this file, so there is
+# nothing else for the split to pick up. Whatever followed the script path is
+# still in "$@", and the two branches are spelled out because expanding an empty
+# "$@" under `set -u` is an error in bash 4.3 and earlier, which is what macOS
+# ships as /bin/bash.
+for candidate in python3 python "py -3"; do
+    if usable $candidate; then
+        if [ "$#" -eq 0 ]; then
+            exec $candidate "$script"
+        else
+            exec $candidate "$script" "$@"
+        fi
     fi
-}
-
-passthrough=("$@")
-[ "$#" -eq 0 ] && passthrough=()
-
-run_with python3
-run_with python
-run_with py -3
+done
 
 # Nothing usable. Say it once per machine, then stay silent.
 marker="${TMPDIR:-/tmp}/structured-report-no-python"
