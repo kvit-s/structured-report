@@ -7,7 +7,7 @@
     "url": "https://kvit.app"
   },
   "homepage": "https://blog.kvit.app",
-  "repository": "https://github.com/kvit-s/structured-report",
+  "repository": "https://github.com/kvitapp/kvit-plugins",
   "license": "MIT",
   "keywords": [
     "hooks",

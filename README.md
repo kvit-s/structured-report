@@ -67,7 +67,7 @@ what Claude sees keep the original text.
 ## Install
 
 ```
-/plugin marketplace add https://github.com/kvit-s/structured-report.git
+/plugin marketplace add https://github.com/kvitapp/kvit-plugins.git
 /plugin install whats-next@kvit
 ```
 
@@ -77,7 +77,7 @@ the install summary says `Run /reload-plugins to activate`, do that or restart
 first, and the convention arrives at the following session start rather than in
 the middle of this one.
 
-The shorthand `/plugin marketplace add kvit-s/structured-report` works too, but
+The shorthand `/plugin marketplace add kvitapp/kvit-plugins` works too, but
 Claude Code expands it to an SSH address, so it needs a GitHub key on that
 machine. The full `https://` URL above needs nothing, and setting
 `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` makes the shorthand use HTTPS as well.
