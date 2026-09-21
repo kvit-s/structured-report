@@ -32,7 +32,6 @@ text over only once the turn is over, after the card was drawn.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import sys
@@ -44,7 +43,7 @@ from core import journal                               # noqa: E402
 from core.config import read_json                      # noqa: E402
 from core.hook import StopInput                        # noqa: E402
 from core.profile import AskLimits, HostProfile        # noqa: E402
-from core.turn import Event, ToolResult, ToolUse       # noqa: E402
+from core.turn import Event                            # noqa: E402
 
 PROFILE = HostProfile(
     key="gemini-cli",
@@ -135,10 +134,8 @@ def record(payload: dict) -> None:
 
     if event_name == "BeforeAgent":
         prompt = payload.get("prompt")
-        prompt = prompt if isinstance(prompt, str) else ""
-        journal.append(cwd, session, Event(
-            role="user", is_prompt=True, text=prompt.strip(), timestamp=stamp,
-            uuid=hashlib.sha1((stamp + prompt).encode("utf-8")).hexdigest()[:16]))
+        journal.record_prompt(cwd, session,
+                              prompt if isinstance(prompt, str) else "", stamp)
         return
 
     if event_name != "AfterTool":
@@ -156,10 +153,8 @@ def record(payload: dict) -> None:
         if answers is not None:
             result_payload = {"answers": answers}
 
-    journal.append(cwd, session, Event(
-        role="assistant", timestamp=stamp,
-        tool_uses=[ToolUse(call_id, name, tool_input)],
-        tool_results=[ToolResult(call_id, _is_error(response), result_payload)]))
+    journal.record_tool(cwd, session, call_id, name, tool_input,
+                        _is_error(response), result_payload, stamp)
 
 
 # ------------------------------------------------------------ reading it back

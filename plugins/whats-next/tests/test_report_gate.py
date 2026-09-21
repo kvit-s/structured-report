@@ -560,6 +560,89 @@ def gemini_cases(root: str) -> None:
           json.dumps(out)[:200])
 
 
+# -------------------------------------------------------------------- Codex
+
+def codex(script: str, payload: dict) -> dict:
+    """One of the hooks, run the way Codex runs it."""
+    proc = subprocess.run(
+        [sys.executable, os.path.join(SCRIPTS, script), "--host", "codex"],
+        input=json.dumps(payload), capture_output=True, text=True)
+    if proc.returncode != 0:
+        return {"_exit": proc.returncode, "_stderr": proc.stderr}
+    out = proc.stdout.strip()
+    return json.loads(out) if out else {}
+
+
+def codex_cases(root: str) -> None:
+    print("Codex")
+    ws = tempfile.mkdtemp(dir=root)
+
+    out = codex("report_context.py", {
+        "cwd": ws, "session_id": "test-session-c0",
+        "hook_event_name": "SessionStart", "source": "startup"})
+    body = (out.get("hookSpecificOutput") or {}).get("additionalContext", "")
+    check("the convention arrives naming Codex's own tool",
+          "ask_user_question" in body and "AskUserQuestion" not in body,
+          body[-140:])
+
+    def prompt_event(session: str, turn: str) -> dict:
+        return {"cwd": ws, "session_id": session, "turn_id": turn,
+                "hook_event_name": "UserPromptSubmit", "prompt": "do the thing"}
+
+    def tool_event(session: str, name: str, tool_input: dict, response=None,
+                   call_id: str = "call-1") -> dict:
+        return {"cwd": ws, "session_id": session, "hook_event_name": "PostToolUse",
+                "tool_name": name, "tool_use_id": call_id,
+                "tool_input": tool_input, "tool_response": response}
+
+    def turn_end(session: str, text: str) -> dict:
+        return {"cwd": ws, "session_id": session, "hook_event_name": "Stop",
+                "last_assistant_message": text, "stop_hook_active": False}
+
+    session = "test-session-c1"
+    codex("report_record.py", prompt_event(session, "turn-1"))
+    codex("report_record.py", tool_event(session, "apply_patch",
+                                         {"input": "*** Begin Patch"}))
+    out = codex("report_gate.py", turn_end(session, "Done: patched it."))
+    check("a patch with nothing offered is blocked",
+          out.get("decision") == "block" and "ask_user_question" in out.get("reason", ""),
+          json.dumps(out)[:200])
+
+    session = "test-session-c2"
+    codex("report_record.py", prompt_event(session, "turn-2"))
+    codex("report_record.py", tool_event(
+        session, "shell", {"command": ["bash", "-lc", "git status && ls"]}))
+    out = codex("report_gate.py", turn_end(session, "Nothing needed changing."))
+    check("a shell call passed as a list is still read as a lookup",
+          out == {}, json.dumps(out)[:200])
+
+    session = "test-session-c3"
+    codex("report_record.py", prompt_event(session, "turn-3"))
+    codex("report_record.py", tool_event(session, "shell",
+                                         {"command": ["bash", "-lc", "go build ./..."]},
+                                         call_id="call-2"))
+    codex("report_record.py", tool_event(
+        session, "ask_user_question",
+        {"questions": [{"prompt": "How to proceed?", "header": "Next",
+                        "options": [
+                            {"label": "Commit", "recommended": True,
+                             "description": "Commit the change now."},
+                            {"label": "Add tests", "description": "Tests first."},
+                            {"label": "Stop here", "description": "Leave it."}]}]},
+        '{"answers": {"0": "Commit (Recommended)"}}', call_id="call-3"))
+    out = codex("report_gate.py", turn_end(session, "Built and committed."))
+    check("its own card, in its own spelling, ends the turn",
+          out == {}, json.dumps(out)[:300])
+
+    records = index_mod.read_index(ws, limit=10)
+    last = records[-1] if records else {}
+    check("the recommended option is marked and the answer is keyed by question",
+          last.get("host") == "codex" and last.get("kind") == "ask"
+          and last.get("answers") == {"How to proceed?": "Commit (Recommended)"}
+          and last["questions"][0]["options"][0]["label"].endswith("(Recommended)"),
+          json.dumps(last)[:300])
+
+
 def main() -> int:
     root = tempfile.mkdtemp(prefix="report-gate-tests-")
     # The switch and the output style are both read by walking up from the
@@ -579,6 +662,7 @@ def main() -> int:
         index_cases(root)
         portability_cases()
         gemini_cases(root)
+        codex_cases(root)
     finally:
         shutil.rmtree(root, ignore_errors=True)
         state = os.path.join(tempfile.gettempdir(), "report_gate_state")

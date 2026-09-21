@@ -1,9 +1,9 @@
 # What's Next
 
-A plugin for Claude Code, and an extension for Gemini CLI. It changes how a turn
-ends: instead of a paragraph saying the work is done, a turn that edited files or
-ran commands finishes with a short report and a question you answer by clicking
-one of two to four options.
+A plugin for Claude Code, an extension for Gemini CLI, and a set of hooks for
+Codex. It changes how a turn ends: instead of a paragraph saying the work is
+done, a turn that edited files or ran commands finishes with a short report and
+a question you answer by clicking one of two to four options.
 
 ## The problem it addresses
 
@@ -164,6 +164,39 @@ The hook contract above is taken from Gemini CLI's documentation and exercised
 in the test suite against payloads built by hand; it has not yet been run
 against an installed Gemini CLI. Treat the first real session as the test.
 
+## Running it in Codex
+
+Codex's hooks follow Claude Code's closely, down to the field names:
+`SessionStart` takes `hookSpecificOutput.additionalContext`, and `Stop` is
+handed `last_assistant_message` and `stop_hook_active`. One difference matters.
+Printing `{"decision": "block", "reason": …}` there does not reject the stop and
+resume the same turn; it starts a new one with the reason as its prompt, so what
+you see is the model picking the work up again rather than the turn continuing.
+The card is Codex's own `ask_user_question`.
+
+There is no one-command install yet. Clone this repository, then merge
+[`codex/hooks.json`](codex/hooks.json) into `~/.codex/hooks.json`, or drop it in
+a project's `.codex/hooks.json`, replacing `$PLUGIN_ROOT` with the path to the
+clone. Installed as a Codex plugin, `$PLUGIN_ROOT` is set for you and the file
+works unchanged. Four hooks are registered: `SessionStart` for the convention,
+`UserPromptSubmit` and `PostToolUse` to write the turn down, and `Stop` for the
+gate.
+
+The turn is recorded rather than read back, as it is under Gemini CLI, though
+for a different reason: Codex does hand hooks a `transcript_path`, and says in
+the same breath that the transcript format is not a stable interface for hooks
+and may change. Its `PostToolUse` payload is documented, so that is what the
+adapter uses.
+
+Two things are unverified here. `ask_user_question`'s parameter schema is not
+documented, so the adapter accepts the spellings it is likely to use — a
+question under `question`, `prompt` or `text`, options as strings or objects,
+a `recommended` flag turned into the " (Recommended)" this convention expects —
+and leaves a call it cannot read alone rather than complaining about it. And
+none of this has been run against an installed Codex; the hook contract comes
+from its documentation and the test suite drives it with payloads of that
+shape.
+
 ## When it stops running on Windows
 
 The failure looks like the plugin having been switched off: turns stop ending
@@ -298,8 +331,8 @@ delivers, the switch resolving across nested directories, and the classifier tha
 decides whether a shell or PowerShell command changed anything. A last group runs
 the same rules through a made-up second agent, whose tools have other names and
 whose card allows other numbers, which is what keeps Claude Code's names out of
-`core/`, and a group that drives the Gemini CLI hooks with payloads of the
-shape its documentation gives. The suite gives itself a temporary home
+`core/`, and two groups that drive the Gemini CLI and Codex hooks with payloads
+of the shape their documentation gives. The suite gives itself a temporary home
 directory, so the settings on the machine running it cannot change the
 answers.
 
@@ -310,6 +343,7 @@ CHANGELOG.md                           what changed in each version
 .claude-plugin/marketplace.json        the Claude Code catalogue
 gemini-extension.json                  the Gemini CLI manifest
 hooks/hooks.json                       the Gemini CLI hooks
+codex/hooks.json                       the Codex hooks, to copy or point at
 plugins/whats-next/
   .claude-plugin/plugin.json           the manifest
   hooks/hooks.json                     SessionStart, Stop and MessageDisplay
@@ -333,6 +367,7 @@ plugins/whats-next/
     config.py                          where the switches are read from
   scripts/hosts/claude_code.py         transcripts, settings and hook JSON
   scripts/hosts/gemini_cli.py          the same for Gemini CLI
+  scripts/hosts/codex.py               the same for Codex
   skills/report/SKILL.md               the /report command
   output-styles/report.md              the convention itself, read by the hook
   tests/test_report_gate.py

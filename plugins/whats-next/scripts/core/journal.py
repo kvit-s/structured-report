@@ -121,6 +121,30 @@ def read(path: str) -> list[Event]:
     return out
 
 
+def record_prompt(cwd: str, session_id: str, text: str, stamp: str = "",
+                  uuid: str = "") -> None:
+    """Mark where a turn begins. Everything after this line is the turn."""
+    append(cwd, session_id, Event(role="user", is_prompt=True,
+                                  text=(text or "").strip(), timestamp=stamp,
+                                  uuid=uuid or _digest(stamp + (text or ""))))
+
+
+def record_tool(cwd: str, session_id: str, call_id: str, name: str,
+                tool_input: dict, is_error: bool = False,
+                payload: dict | None = None, stamp: str = "") -> None:
+    """One finished tool call: what was called, and what came back that the
+    rules care about — whether it failed, and the answers to a card."""
+    append(cwd, session_id, Event(
+        role="assistant", timestamp=stamp,
+        tool_uses=[ToolUse(call_id, name, tool_input if isinstance(tool_input, dict) else {})],
+        tool_results=[ToolResult(call_id, is_error, payload)]))
+
+
+def _digest(text: str) -> str:
+    import hashlib
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
+
+
 def sweep(cwd: str, keep_days: int = KEEP_DAYS) -> None:
     """Remove journals nothing will read again. Runs when a session starts its
     own file, so the cost falls once per session rather than once per turn."""

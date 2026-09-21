@@ -5,6 +5,33 @@ Every version of the What's Next plugin, newest first. The version is the
 also what `claude plugin update` compares against to decide whether a machine
 needs new files.
 
+## 0.5.0 — 2026-09-20
+
+**It runs in Codex as well.** Codex's hooks follow Claude Code's closely —
+`SessionStart` takes `hookSpecificOutput.additionalContext`, `Stop` is handed
+`last_assistant_message` and `stop_hook_active` — so the adapter is mostly a
+map of names. The one difference that shows: `{"decision": "block", "reason":
+…}` there starts a new turn with the reason as its prompt rather than resuming
+the one that just ended. The card is Codex's `ask_user_question`.
+
+Installing is by hand for now. `codex/hooks.json` in this repository registers
+`SessionStart`, `UserPromptSubmit`, `PostToolUse` and `Stop`; copy it into
+`~/.codex/hooks.json` or a project's `.codex/hooks.json` with `$PLUGIN_ROOT`
+replaced by the path to a clone, or install the repository as a Codex plugin,
+where `$PLUGIN_ROOT` is set for you.
+
+The turn is written down through `UserPromptSubmit` and `PostToolUse` rather
+than read out of the transcript: Codex populates `transcript_path` and says
+the transcript format is not a stable interface for hooks, while the
+`PostToolUse` payload is documented. Shell calls arrive there as a list —
+`["bash", "-lc", "git status"]` — and the adapter takes the command out of it
+so the classifier judges what actually ran.
+
+`ask_user_question`'s schema is not documented, so the adapter accepts the
+spellings it is likely to use and leaves a call it cannot read alone, rather
+than telling the user their card was malformed. As with Gemini CLI, this has
+not been run against an installed Codex.
+
 ## 0.4.0 — 2026-09-20
 
 **It runs in Gemini CLI as well.** `gemini extensions install
