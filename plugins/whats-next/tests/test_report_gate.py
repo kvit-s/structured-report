@@ -427,7 +427,9 @@ def another_agent():
         write_tools=frozenset({"apply_patch"}),
         shell_tools=frozenset({"shell"}),
         ask=AskLimits(max_questions=3, min_options=2, max_options=5,
-                      header_max=20))
+                      header_max=20),
+        ask_aliases=frozenset({"an_older_name"}),
+        ask_note="Give each question an `id` as well.")
 
 
 def portability_cases() -> None:
@@ -474,10 +476,18 @@ def portability_cases() -> None:
     check("the header limit comes from the profile, not from a constant",
           not hard and any("15 characters" in p for p in soft), str(soft))
 
+    aliased = changed + [
+        Event(role="assistant", text="Committed.",
+              tool_uses=[ToolUse("q2", "an_older_name", card)]),
+        Event(role="user", tool_results=[ToolResult(
+            "q2", False, {"answers": {"How to proceed?": "Commit (Recommended)"}})])]
+    check("a card under another name the same tool has had is recognised",
+          decide_mod.decide(other, aliased, "Committed.").kind == "ask")
+
     body = convention.convention_text(other)
     check("the convention tells the model to call the tool that exists there",
-          "ask_user_question" in body and "AskUserQuestion" not in body,
-          body[:120])
+          "ask_user_question" in body and "AskUserQuestion" not in body
+          and "Give each question an `id`" in body, body[-160:])
 
 
 # --------------------------------------------------------------- Gemini CLI
@@ -565,119 +575,6 @@ def gemini_cases(root: str) -> None:
           json.dumps(out)[:200])
 
 
-# -------------------------------------------------------------------- Codex
-
-def codex(script: str, payload: dict) -> dict:
-    """One of the hooks, run the way Codex runs it."""
-    proc = subprocess.run(
-        [sys.executable, os.path.join(SCRIPTS, script), "--host", "codex"],
-        input=json.dumps(payload), capture_output=True, text=True)
-    if proc.returncode != 0:
-        return {"_exit": proc.returncode, "_stderr": proc.stderr}
-    out = proc.stdout.strip()
-    return json.loads(out) if out else {}
-
-
-def codex_answers_by_id() -> dict:
-    """Codex keys an answer by the question's own id, which has to come back
-    keyed by the question text like every other host's."""
-    sys.path.insert(0, SCRIPTS)
-    from hosts import load
-    return load("codex")._answers(
-        {"questions": [{"id": "next_action", "question": "How should I proceed?"}]},
-        '{"answers": {"next_action": "Commit it"}}')
-
-
-def codex_cases(root: str) -> None:
-    print("Codex")
-    ws = tempfile.mkdtemp(dir=root)
-
-    out = codex("report_context.py", {
-        "cwd": ws, "session_id": "test-session-c0",
-        "hook_event_name": "SessionStart", "source": "startup"})
-    body = (out.get("hookSpecificOutput") or {}).get("additionalContext", "")
-    check("the convention arrives naming Codex's own tool",
-          "request_user_input" in body and "AskUserQuestion" not in body
-          and "at most 3 questions" in body, body[-140:])
-
-    def prompt_event(session: str, turn: str) -> dict:
-        return {"cwd": ws, "session_id": session, "turn_id": turn,
-                "hook_event_name": "UserPromptSubmit", "prompt": "do the thing"}
-
-    def tool_event(session: str, name: str, tool_input: dict, response=None,
-                   call_id: str = "call-1") -> dict:
-        return {"cwd": ws, "session_id": session, "hook_event_name": "PostToolUse",
-                "tool_name": name, "tool_use_id": call_id,
-                "tool_input": tool_input, "tool_response": response}
-
-    def turn_end(session: str, text: str) -> dict:
-        return {"cwd": ws, "session_id": session, "hook_event_name": "Stop",
-                "last_assistant_message": text, "stop_hook_active": False}
-
-    session = "test-session-c1"
-    codex("report_record.py", prompt_event(session, "turn-1"))
-    codex("report_record.py", tool_event(session, "apply_patch",
-                                         {"input": "*** Begin Patch"}))
-    out = codex("report_gate.py", turn_end(session, "Done: patched it."))
-    check("a patch with nothing offered is blocked",
-          out.get("decision") == "block"
-          and "request_user_input" in out.get("reason", ""),
-          json.dumps(out)[:200])
-
-    session = "test-session-c2"
-    codex("report_record.py", prompt_event(session, "turn-2"))
-    codex("report_record.py", tool_event(
-        session, "shell", {"command": ["bash", "-lc", "git status && ls"]}))
-    out = codex("report_gate.py", turn_end(session, "Nothing needed changing."))
-    check("a shell call passed as a list is still read as a lookup",
-          out == {}, json.dumps(out)[:200])
-
-    session = "test-session-c3"
-    codex("report_record.py", prompt_event(session, "turn-3"))
-    codex("report_record.py", tool_event(session, "shell",
-                                         {"command": ["bash", "-lc", "go build ./..."]},
-                                         call_id="call-2"))
-    codex("report_record.py", tool_event(
-        session, "ask_user_question",
-        {"questions": [{"prompt": "How to proceed?", "header": "Next",
-                        "options": [
-                            {"label": "Commit", "recommended": True,
-                             "description": "Commit the change now."},
-                            {"label": "Add tests", "description": "Tests first."},
-                            {"label": "Stop here", "description": "Leave it."}]}]},
-        '{"answers": {"0": "Commit (Recommended)"}}', call_id="call-3"))
-    out = codex("report_gate.py", turn_end(session, "Built and committed."))
-    check("a card under the tool's other name is recognised too",
-          out == {}, json.dumps(out)[:300])
-
-    answered = codex_answers_by_id()
-    check("an answer keyed by the question's id is keyed back to the question",
-          answered == {"How should I proceed?": "Commit it"}, json.dumps(answered))
-
-    session = "test-session-c4"
-    codex("report_record.py", prompt_event(session, "turn-4"))
-    codex("report_record.py", tool_event(session, "apply_patch",
-                                         {"input": "*** Begin Patch"}))
-    out = codex("report_gate.py", turn_end(
-        session, "Wrote next-step.md.\n\nChecks: the suite passes.\n\n"
-        "The follow-up selector is unavailable in this mode, so no "
-        "continuation was selected."))
-    check("a turn that says the card is unavailable is not sent back",
-          out == {}, json.dumps(out)[:200])
-    unavailable = [r for r in index_mod.read_index(ws, limit=50)
-                   if any("unavailable" in p for p in r.get("problems") or [])]
-    check("why no card was asked for is kept in the index",
-          len(unavailable) == 1, json.dumps(unavailable)[:200])
-
-    records = index_mod.read_index(ws, limit=10)
-    last = [r for r in records if r.get("kind") == "ask"][-1] if records else {}
-    check("the recommended option is marked and the answer is keyed by question",
-          last.get("host") == "codex" and last.get("kind") == "ask"
-          and last.get("answers") == {"How to proceed?": "Commit (Recommended)"}
-          and last["questions"][0]["options"][0]["label"].endswith("(Recommended)"),
-          json.dumps(last)[:300])
-
-
 def main() -> int:
     root = tempfile.mkdtemp(prefix="report-gate-tests-")
     # The switch and the output style are both read by walking up from the
@@ -697,7 +594,6 @@ def main() -> int:
         index_cases(root)
         portability_cases()
         gemini_cases(root)
-        codex_cases(root)
     finally:
         shutil.rmtree(root, ignore_errors=True)
         state = os.path.join(tempfile.gettempdir(), "report_gate_state")

@@ -118,11 +118,11 @@ def says_no_followup(text: str) -> bool:
 def says_tool_unavailable(text: str, tool_name: str) -> bool:
     """True when the closing text says the question tool is not there.
 
-    It can be missing for real. Codex keeps `request_user_input` behind a
-    feature flag and does not offer it in `codex exec` at all, and an agent
-    that cannot draw a card cannot satisfy the convention however often it is
-    sent back. Saying so plainly is then the honest ending, and the turn is
-    allowed to finish, with the reason kept in the index."""
+    It can be missing for real: an agent may put its question tool behind a
+    flag, leave it out of non-interactive runs, or let a project disable it.
+    A model that cannot draw a card cannot satisfy the convention however
+    often it is sent back, so saying so plainly is the honest ending. The turn
+    is allowed to finish and the reason is kept in the index."""
     if not text:
         return False
     subject = f"{re.escape(tool_name)}|{SUBJECT}"

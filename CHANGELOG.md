@@ -5,6 +5,40 @@ Every version of the What's Next plugin, newest first. The version is the
 also what `claude plugin update` compares against to decide whether a machine
 needs new files.
 
+## 0.6.0 — 2026-09-22
+
+**Codex support is removed.** The adapter, its hook file and its tests are
+gone, and the README no longer offers it. What the plugin needs from a host is
+a card whose answer comes back inside the turn, and Codex's Default
+collaboration mode is specified not to work that way. Its own per-turn
+instructions, which arrive with every request, say to prefer making reasonable
+assumptions over stopping to ask, to use `request_user_input` only for
+optional questions, and — the deciding line — to "continue with best judgment"
+when the tool returns no answers rather than treating the turn as blocked.
+
+That is what a real session did: the model built a correct card, Codex drew it
+as an asynchronous question reading `Questions 0/1 answered`, the turn
+finished without waiting, and the call returned `{"answers":{}}`. There is a
+second mode, Plan, where asking may well block, but it has no command-line
+switch and Codex states that neither tool descriptions nor user requests
+change the mode, so nothing the plugin says can reach it.
+
+Enforcing a card there would mean overriding the host's own instructions to
+produce a question nobody answers. The work is in the history if Codex's
+modes change: 0.5.0 through 0.5.3 record the hook contract, the tool names,
+the trust prompt and the `id` requirement, and `core/` still knows nothing
+about any particular agent.
+
+**What the Codex work left behind, because it is useful anywhere.** A profile
+can list other names its question tool has had and carry one sentence of
+host-specific guidance. A turn let through after the block budget runs out is
+written to the index. A closing text saying the question tool is unavailable
+ends the turn instead of being sent back. All four are covered by the tests
+that run the rules through an invented second agent.
+
+If you registered the Codex hooks by hand, remove `~/.codex/hooks.json`, or
+the four hooks will fail on every turn now that the adapter is gone.
+
 ## 0.5.3 — 2026-09-22
 
 **Two things a real Codex card exposed.** Codex rejects `request_user_input`

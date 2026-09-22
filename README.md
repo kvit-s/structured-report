@@ -1,9 +1,9 @@
 # What's Next
 
-A plugin for Claude Code, an extension for Gemini CLI, and a set of hooks for
-Codex. It changes how a turn ends: instead of a paragraph saying the work is
-done, a turn that edited files or ran commands finishes with a short report and
-a question you answer by clicking one of two to four options.
+A plugin for Claude Code, and an extension for Gemini CLI. It changes how a
+turn ends: instead of a paragraph saying the work is done, a turn that edited
+files or ran commands finishes with a short report and a question you answer by
+clicking one of two to four options.
 
 ## The problem it addresses
 
@@ -164,103 +164,6 @@ The hook contract above is taken from Gemini CLI's documentation and exercised
 in the test suite against payloads built by hand; it has not yet been run
 against an installed Gemini CLI. Treat the first real session as the test.
 
-## Running it in Codex
-
-Codex's hooks follow Claude Code's closely, down to the field names:
-`SessionStart` takes `hookSpecificOutput.additionalContext`, and `Stop` is
-handed `last_assistant_message` and `stop_hook_active`. One difference matters.
-Printing `{"decision": "block", "reason": …}` there does not reject the stop and
-resume the same turn; it starts a new one with the reason as its prompt, so what
-you see is the model picking the work up again rather than the turn continuing.
-The card is Codex's own `request_user_input`, which takes one to three
-questions.
-
-Installing is by hand. Clone this repository, then copy
-[`codex/hooks.json`](codex/hooks.json) to `~/.codex/hooks.json`, replacing
-`$WHATS_NEXT_ROOT` with the path to the clone — or leave the file as it is and
-export `WHATS_NEXT_ROOT` in your shell profile, since a hook command runs in a
-shell that inherits your environment. A project's `.codex/hooks.json` works the
-same way for one repository. Four hooks are registered: `SessionStart` for the
-convention, `UserPromptSubmit` and `PostToolUse` to write the turn down, and
-`Stop` for the gate.
-
-**Codex asks before it runs them, and one of the answers switches everything
-off.** The next time you start Codex after the file is added or changed, it
-opens with this:
-
-```
-Hooks need review
-4 hooks are new or changed.
-Hooks can run outside the sandbox after you trust them.
-
-   1. Review hooks
- > 2. Trust all and continue
-   3. Continue without trusting (hooks won't run)
-```
-
-Pick "Trust all and continue", or review them first: each one runs
-`hooks/python.sh`, which finds a Python and execs the script named after it.
-Picking the third answer, or dismissing the prompt, leaves the plugin
-installed and inert — no convention, no card, no gate, no journal, and nothing
-on screen to say why. The prompt returns whenever the file changes, and
-`/hooks` inside a session lists what is registered.
-
-`codex exec` never asks and so never trusts. Hooks run there only with
-`codex exec --dangerously-bypass-hook-trust`, which also works on the
-interactive command if you would rather not grant trust permanently.
-
-The turn is recorded rather than read back. Codex does populate
-`transcript_path`, and says in the same breath that the transcript format is
-not a stable interface for hooks and may change, while the `PostToolUse`
-payload is documented, so that is what the adapter uses.
-
-**The card itself needs a feature flag.** In codex-cli 0.155.1
-`request_user_input` is not offered in the default mode unless one is turned
-on:
-
-```
-codex features enable default_mode_request_user_input
-```
-
-Codex marks that flag "under development" and warns when you enable it.
-Without it the model has no card to call, says so — "the follow-up selector is
-unavailable in this mode" — and the turn ends in prose. `codex exec` does not
-offer the tool whatever the flag says, so in CI set `REPORT_GATE=off` rather
-than paying for a round trip that cannot succeed.
-
-A closing text that says the question tool is unavailable ends the turn, the
-same way `No follow-up:` does, and the reason is kept in the index. Sending
-the model back cannot conjure a tool the host has not given it.
-
-**What the card does there is not what it does in Claude Code.** With the flag
-on, codex-cli 0.155.1 posts the question asynchronously: the terminal shows a
-line reading `Questions 0/1 answered` with the question under it marked
-`(unanswered)`, and the turn finishes without waiting. The options are drawn
-and the answer can be given afterwards, but the pick does not come back inside
-the turn, which is the round trip the convention saves under Claude Code. That
-is Codex's own behaviour and nothing a hook can change. What the plugin still
-does there is worth having — the convention arrives, the ending is checked,
-and a turn that offers nothing is sent back — but the card is a note to
-yourself rather than a button that resumes the work.
-
-Codex also requires an `id` on each question and rejects the call without one:
-`failed to parse function arguments: missing field 'id'`. The convention it is
-given says so, so the model includes one; if you see that error in a
-transcript, the session was started before 0.5.3.
-
-Where trust is recorded, if you want to see it: `~/.codex/config.toml` gains a
-`[hooks.state."<file>:<event>:0:0"]` table per hook with a `trusted_hash`.
-Change `hooks.json` and those hashes no longer match, which is what brings the
-review prompt back.
-
-What has been seen working against codex-cli 0.155.1: the convention arrives
-and the model answers from it; the journal is written; and in both a scripted
-run and an interactive one, a turn that changed a file and ended with bare
-prose was blocked, after which Codex sent the reason back and the model
-rewrote its ending with a headline and a `Checks:` line. Those runs also
-settled two names — Codex reports its shell tool to hooks as `Bash` with the
-command as a string, and its edits as `apply_patch`.
-
 ## When it stops running on Windows
 
 The failure looks like the plugin having been switched off: turns stop ending
@@ -395,8 +298,8 @@ delivers, the switch resolving across nested directories, and the classifier tha
 decides whether a shell or PowerShell command changed anything. A last group runs
 the same rules through a made-up second agent, whose tools have other names and
 whose card allows other numbers, which is what keeps Claude Code's names out of
-`core/`, and two groups that drive the Gemini CLI and Codex hooks with payloads
-of the shape their documentation gives. The suite gives itself a temporary home
+`core/`, and a group that drives the Gemini CLI hooks with payloads of the
+shape its documentation gives. The suite gives itself a temporary home
 directory, so the settings on the machine running it cannot change the
 answers.
 
@@ -407,7 +310,6 @@ CHANGELOG.md                           what changed in each version
 .claude-plugin/marketplace.json        the Claude Code catalogue
 gemini-extension.json                  the Gemini CLI manifest
 hooks/hooks.json                       the Gemini CLI hooks
-codex/hooks.json                       the Codex hooks, to copy or point at
 plugins/whats-next/
   .claude-plugin/plugin.json           the manifest
   hooks/hooks.json                     SessionStart, Stop and MessageDisplay
@@ -431,7 +333,6 @@ plugins/whats-next/
     config.py                          where the switches are read from
   scripts/hosts/claude_code.py         transcripts, settings and hook JSON
   scripts/hosts/gemini_cli.py          the same for Gemini CLI
-  scripts/hosts/codex.py               the same for Codex
   skills/report/SKILL.md               the /report command
   output-styles/report.md              the convention itself, read by the hook
   tests/test_report_gate.py
