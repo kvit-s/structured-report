@@ -232,6 +232,22 @@ A closing text that says the question tool is unavailable ends the turn, the
 same way `No follow-up:` does, and the reason is kept in the index. Sending
 the model back cannot conjure a tool the host has not given it.
 
+**What the card does there is not what it does in Claude Code.** With the flag
+on, codex-cli 0.155.1 posts the question asynchronously: the terminal shows a
+line reading `Questions 0/1 answered` with the question under it marked
+`(unanswered)`, and the turn finishes without waiting. The options are drawn
+and the answer can be given afterwards, but the pick does not come back inside
+the turn, which is the round trip the convention saves under Claude Code. That
+is Codex's own behaviour and nothing a hook can change. What the plugin still
+does there is worth having — the convention arrives, the ending is checked,
+and a turn that offers nothing is sent back — but the card is a note to
+yourself rather than a button that resumes the work.
+
+Codex also requires an `id` on each question and rejects the call without one:
+`failed to parse function arguments: missing field 'id'`. The convention it is
+given says so, so the model includes one; if you see that error in a
+transcript, the session was started before 0.5.3.
+
 Where trust is recorded, if you want to see it: `~/.codex/config.toml` gains a
 `[hooks.state."<file>:<event>:0:0"]` table per hook with a `trusted_hash`.
 Change `hooks.json` and those hashes no longer match, which is what brings the

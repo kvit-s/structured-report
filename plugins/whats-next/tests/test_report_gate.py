@@ -578,6 +578,16 @@ def codex(script: str, payload: dict) -> dict:
     return json.loads(out) if out else {}
 
 
+def codex_answers_by_id() -> dict:
+    """Codex keys an answer by the question's own id, which has to come back
+    keyed by the question text like every other host's."""
+    sys.path.insert(0, SCRIPTS)
+    from hosts import load
+    return load("codex")._answers(
+        {"questions": [{"id": "next_action", "question": "How should I proceed?"}]},
+        '{"answers": {"next_action": "Commit it"}}')
+
+
 def codex_cases(root: str) -> None:
     print("Codex")
     ws = tempfile.mkdtemp(dir=root)
@@ -639,6 +649,10 @@ def codex_cases(root: str) -> None:
     out = codex("report_gate.py", turn_end(session, "Built and committed."))
     check("a card under the tool's other name is recognised too",
           out == {}, json.dumps(out)[:300])
+
+    answered = codex_answers_by_id()
+    check("an answer keyed by the question's id is keyed back to the question",
+          answered == {"How should I proceed?": "Commit it"}, json.dumps(answered))
 
     session = "test-session-c4"
     codex("report_record.py", prompt_event(session, "turn-4"))

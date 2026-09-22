@@ -37,6 +37,10 @@ class HostProfile:
     # tool between releases is recognised either way, while the convention
     # text always tells the model to call `ask_tool`.
     ask_aliases: frozenset = frozenset()
+    # One extra sentence about calling that tool here, appended to the
+    # convention when it is delivered. For anything the host requires that
+    # the file itself cannot know about.
+    ask_note: str = ""
 
     def is_ask(self, tool_name: str) -> bool:
         return tool_name == self.ask_tool or tool_name in self.ask_aliases

@@ -66,6 +66,11 @@ PROFILE = HostProfile(
     # Some builds and much of the writing about Codex call the same card
     # `ask_user_question`, so a call by that name counts too.
     ask_aliases=frozenset({"ask_user_question"}),
+    # Codex rejects the call outright without this: "failed to parse function
+    # arguments: missing field `id`". The model then has to call again, which
+    # costs a round trip and leaves a failed call in the transcript.
+    ask_note="Give each question an `id` as well, a short string such as "
+             "\"next_action\"; Codex refuses a call whose questions have none.",
 )
 
 poll_for_turn = False
@@ -152,8 +157,12 @@ def _answers(tool_input: dict, response) -> dict | None:
         answers = response.get("answers", response)
     else:
         answers = response
-    questions = [q.get("question") or "" for q in tool_input.get("questions") or []
-                 if isinstance(q, dict)]
+    asked = [q for q in tool_input.get("questions") or [] if isinstance(q, dict)]
+    questions = [q.get("question") or "" for q in asked]
+    # Codex keys an answer by the question's own `id`; other builds have used
+    # the question's position. Both end up keyed by the question text, which
+    # is what the index and the card printer read.
+    by_id = {str(q.get("id")): q.get("question") or "" for q in asked if q.get("id")}
     if isinstance(answers, list):
         return {q: a for q, a in zip(questions, answers)}
     if not isinstance(answers, dict):
@@ -161,7 +170,9 @@ def _answers(tool_input: dict, response) -> dict | None:
     out = {}
     for key, value in answers.items():
         text = str(key)
-        if text.isdigit() and int(text) < len(questions):
+        if text in by_id:
+            text = by_id[text]
+        elif text.isdigit() and int(text) < len(questions):
             text = questions[int(text)]
         out[text] = value
     return out

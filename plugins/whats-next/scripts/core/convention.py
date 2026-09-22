@@ -68,7 +68,8 @@ def host_note(profile) -> str:
     """A sentence naming the tool and the numbers that apply here, for any
     agent whose card is not the one the file was written about."""
     limits = profile.ask
-    if profile.ask_tool == CLAUDE_ASK_TOOL and limits == AskLimits():
+    if (profile.ask_tool == CLAUDE_ASK_TOOL and limits == AskLimits()
+            and not profile.ask_note):
         return ""
     return (
         f"\n\nThe numbers above are Claude Code's. In {profile.display} the tool "
@@ -78,7 +79,7 @@ def host_note(profile) -> str:
         f"{limits.header_max} characters. If that tool is not available in this "
         "session, do not try to work around it: end in prose whose last line "
         "reads \"No follow-up: the card is unavailable here.\" and the turn will "
-        "end."
+        "end." + (" " + profile.ask_note if profile.ask_note else "")
     )
 
 

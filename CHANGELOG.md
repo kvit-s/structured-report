@@ -5,6 +5,25 @@ Every version of the What's Next plugin, newest first. The version is the
 also what `claude plugin update` compares against to decide whether a machine
 needs new files.
 
+## 0.5.3 — 2026-09-22
+
+**Two things a real Codex card exposed.** Codex rejects `request_user_input`
+outright when a question has no `id` — "failed to parse function arguments:
+missing field `id`" — which cost a round trip every time, so the convention
+now tells the model to include one. And an answer comes back keyed by that
+`id` rather than by the question, so it is keyed back to the question text on
+the way in; without that a pick would have been filed under `next_action` and
+read back as unanswered.
+
+**What the card does in Codex is worth knowing before you install it there.**
+In the default mode, codex-cli 0.155.1 posts the question asynchronously: the
+terminal shows `Questions 0/1 answered` and the turn finishes without waiting
+for a pick. The options are drawn and can be answered afterwards, but the
+answer does not arrive inside the turn, which is the round trip this
+convention exists to save under Claude Code. A hook cannot change that. What
+Codex users still get is the convention itself and the check on how a turn
+ends. The README says so plainly rather than implying parity.
+
 ## 0.5.2 — 2026-09-22
 
 **Codex hides the card behind a feature flag, and the gate now copes when it
