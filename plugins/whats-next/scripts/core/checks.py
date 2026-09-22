@@ -32,6 +32,9 @@ UNVERIFIED = re.compile(
     r"(?i)(left|not|un)\s*(it\s+)?(verified|tested|checked|run)|"
     r"did not (?:run|test|verify|check)|no tests? (?:were )?run")
 NO_FOLLOWUP = re.compile(r"(?im)^\s*(?:[-*>]\s*)?(?:\*\*)?no follow-?up\b")
+MISSING = (r"unavailable|not available|unsupported|not supported|disabled|"
+           r"not enabled|cannot be called|can't be called|is missing")
+SUBJECT = r"question tool|follow-?up selector|card of options"
 CHOICE_IN_PROSE = re.compile(
     r"(?i)\b(should i|shall i|do you want me to|would you like me to|"
     r"want me to|which (?:one|option|approach|of these|would you)|"
@@ -110,6 +113,22 @@ def ask_problems(payload: dict, limits: AskLimits = _DEFAULT_LIMITS,
 
 def says_no_followup(text: str) -> bool:
     return bool(NO_FOLLOWUP.search(text or ""))
+
+
+def says_tool_unavailable(text: str, tool_name: str) -> bool:
+    """True when the closing text says the question tool is not there.
+
+    It can be missing for real. Codex keeps `request_user_input` behind a
+    feature flag and does not offer it in `codex exec` at all, and an agent
+    that cannot draw a card cannot satisfy the convention however often it is
+    sent back. Saying so plainly is then the honest ending, and the turn is
+    allowed to finish, with the reason kept in the index."""
+    if not text:
+        return False
+    subject = f"{re.escape(tool_name)}|{SUBJECT}"
+    tail = "\n".join([ln for ln in text.splitlines() if ln.strip()][-4:])
+    return bool(re.search(rf"(?i)\b(?:{subject})\b[^.\n]{{0,80}}?\b(?:{MISSING})\b", tail)
+                or re.search(rf"(?i)\b(?:{MISSING})\b[^.\n]{{0,80}}?\b(?:{subject})\b", tail))
 
 
 def prose_problems(text: str) -> list[str]:

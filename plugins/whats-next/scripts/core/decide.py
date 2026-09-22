@@ -10,7 +10,9 @@ judgement separate is what lets a second agent reuse it unchanged.
 Three endings send the model back:
 
   * the turn changed something, offered nothing, and did not say why there is
-    no follow-up;
+    no follow-up — saying the question tool is unavailable counts as saying
+    why, since sending the model back cannot conjure a tool the host has not
+    given it;
   * the closing text asks the user to choose, with no card drawn;
   * a call of the question tool came back as an error, so no card appeared.
 
@@ -32,6 +34,7 @@ class Verdict:
     kind: str = ""                   # "ask" or "done": what to index, if anything
     ask: object | None = None        # the ToolCall the turn ended with
     problems: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)   # indexed, not shown
     reset_blocks: bool = False       # this prompt is settled; forget its blocks
 
 
@@ -66,5 +69,10 @@ def decide(profile, turn: list[turn_mod.Event], final_text: str) -> Verdict:
     if checks.says_no_followup(final_text):
         return Verdict("allow", kind="done", problems=checks.prose_problems(final_text),
                        reset_blocks=True)
+
+    if checks.says_tool_unavailable(final_text, profile.ask_tool):
+        return Verdict("allow", kind="done", reset_blocks=True,
+                       notes=[f"{profile.ask_tool} was reported unavailable in "
+                              "this session, so no card was asked for"])
 
     return Verdict("block", reason=messages.no_ask(profile))

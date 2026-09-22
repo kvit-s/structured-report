@@ -75,7 +75,10 @@ def host_note(profile) -> str:
         f"is `{profile.ask_tool}`, and one call takes at most "
         f"{limits.max_questions} questions, each with {limits.min_options} to "
         f"{limits.max_options} options and a header of at most "
-        f"{limits.header_max} characters."
+        f"{limits.header_max} characters. If that tool is not available in this "
+        "session, do not try to work around it: end in prose whose last line "
+        "reads \"No follow-up: the card is unavailable here.\" and the turn will "
+        "end."
     )
 
 

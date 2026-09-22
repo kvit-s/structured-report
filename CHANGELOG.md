@@ -5,6 +5,27 @@ Every version of the What's Next plugin, newest first. The version is the
 also what `claude plugin update` compares against to decide whether a machine
 needs new files.
 
+## 0.5.2 — 2026-09-22
+
+**Codex hides the card behind a feature flag, and the gate now copes when it
+is off.** In codex-cli 0.155.1 `request_user_input` is not offered in the
+default mode unless `default_mode_request_user_input` is enabled, and it is
+never offered in `codex exec`. A session without it produced two blocks in a
+row and endings like "the follow-up selector is unavailable in this mode",
+which no amount of sending the model back could fix.
+
+So a closing text that says the question tool is unavailable now ends the
+turn, the way `No follow-up:` does, with the reason kept in the index rather
+than printed. The convention text also tells the model what to do when the
+tool is missing instead of leaving it to improvise, and the README says which
+flag to turn on, that Codex warns the flag is under development, and that CI
+wants `REPORT_GATE=off`.
+
+The README also records where Codex keeps hook trust — a
+`[hooks.state."<file>:<event>:0:0"]` table per hook in `config.toml`, holding
+a `trusted_hash` — so it is clear why changing `hooks.json` brings the review
+prompt back.
+
 ## 0.5.1 — 2026-09-22
 
 **Tried it on a real Codex, and fixed what that turned up.** Against codex-cli

@@ -214,20 +214,36 @@ The turn is recorded rather than read back. Codex does populate
 not a stable interface for hooks and may change, while the `PostToolUse`
 payload is documented, so that is what the adapter uses.
 
-What was checked against codex-cli 0.155.1, in a real session: the convention
-arrives and the model answers from it; the journal is written; a turn that
-changed a file and ended with bare prose is blocked, and Codex sends the reason
-back and the model rewrites its ending with a headline, a `Checks:` line and
-either a card or `No follow-up:`. That run also settled two names — Codex
-reports its shell tool to hooks as `Bash` with the command as a string, and its
-edits as `apply_patch`.
+**The card itself needs a feature flag.** In codex-cli 0.155.1
+`request_user_input` is not offered in the default mode unless one is turned
+on:
 
-What has not been checked is the card itself, because `request_user_input` is
-unavailable in `codex exec` and only an interactive session can draw one. That
-absence has a consequence worth knowing: in `codex exec`, and so in CI, a turn
-that changes something cannot offer anything, so the gate costs one extra round
-trip before the model falls back to `No follow-up:`. Set `REPORT_GATE=off` in
-that environment if you would rather it stayed quiet.
+```
+codex features enable default_mode_request_user_input
+```
+
+Codex marks that flag "under development" and warns when you enable it.
+Without it the model has no card to call, says so — "the follow-up selector is
+unavailable in this mode" — and the turn ends in prose. `codex exec` does not
+offer the tool whatever the flag says, so in CI set `REPORT_GATE=off` rather
+than paying for a round trip that cannot succeed.
+
+A closing text that says the question tool is unavailable ends the turn, the
+same way `No follow-up:` does, and the reason is kept in the index. Sending
+the model back cannot conjure a tool the host has not given it.
+
+Where trust is recorded, if you want to see it: `~/.codex/config.toml` gains a
+`[hooks.state."<file>:<event>:0:0"]` table per hook with a `trusted_hash`.
+Change `hooks.json` and those hashes no longer match, which is what brings the
+review prompt back.
+
+What has been seen working against codex-cli 0.155.1: the convention arrives
+and the model answers from it; the journal is written; and in both a scripted
+run and an interactive one, a turn that changed a file and ended with bare
+prose was blocked, after which Codex sent the reason back and the model
+rewrote its ending with a headline and a `Checks:` line. Those runs also
+settled two names — Codex reports its shell tool to hooks as `Bash` with the
+command as a string, and its edits as `apply_patch`.
 
 ## When it stops running on Windows
 

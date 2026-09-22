@@ -640,8 +640,23 @@ def codex_cases(root: str) -> None:
     check("a card under the tool's other name is recognised too",
           out == {}, json.dumps(out)[:300])
 
+    session = "test-session-c4"
+    codex("report_record.py", prompt_event(session, "turn-4"))
+    codex("report_record.py", tool_event(session, "apply_patch",
+                                         {"input": "*** Begin Patch"}))
+    out = codex("report_gate.py", turn_end(
+        session, "Wrote next-step.md.\n\nChecks: the suite passes.\n\n"
+        "The follow-up selector is unavailable in this mode, so no "
+        "continuation was selected."))
+    check("a turn that says the card is unavailable is not sent back",
+          out == {}, json.dumps(out)[:200])
+    unavailable = [r for r in index_mod.read_index(ws, limit=50)
+                   if any("unavailable" in p for p in r.get("problems") or [])]
+    check("why no card was asked for is kept in the index",
+          len(unavailable) == 1, json.dumps(unavailable)[:200])
+
     records = index_mod.read_index(ws, limit=10)
-    last = records[-1] if records else {}
+    last = [r for r in records if r.get("kind") == "ask"][-1] if records else {}
     check("the recommended option is marked and the answer is keyed by question",
           last.get("host") == "codex" and last.get("kind") == "ask"
           and last.get("answers") == {"How to proceed?": "Commit (Recommended)"}

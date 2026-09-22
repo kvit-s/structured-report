@@ -187,11 +187,12 @@ def main() -> None:
         records = turn_mod.find_reports(turn, profile, limit=1)
         prose = records[0].get("prose") if records else ""
         index(profile, stop, turn, "ask", verdict.ask.id or f"ask:{user_uuid}",
-              prose or final_text, ask=verdict.ask, problems=verdict.problems)
+              prose or final_text, ask=verdict.ask,
+              problems=verdict.problems + verdict.notes)
     elif verdict.kind == "done":
         digest = hashlib.sha1((user_uuid + final_text).encode("utf-8")).hexdigest()[:16]
         index(profile, stop, turn, "done", f"done:{digest}", final_text,
-              problems=verdict.problems)
+              problems=verdict.problems + verdict.notes)
 
     if verdict.problems:
         host.emit_allow("report gate: " + "; ".join(verdict.problems))
