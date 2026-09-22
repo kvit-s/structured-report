@@ -184,11 +184,30 @@ same way for one repository. Four hooks are registered: `SessionStart` for the
 convention, `UserPromptSubmit` and `PostToolUse` to write the turn down, and
 `Stop` for the gate.
 
-**Codex asks before it runs them.** Newly added hooks are untrusted, and the
-first interactive session says that so many hooks need review before they can
-run; `/hooks` is where you approve them. Until then nothing happens, with no
-error. For a non-interactive run, `codex exec
---dangerously-bypass-hook-trust` runs them without the persisted approval.
+**Codex asks before it runs them, and one of the answers switches everything
+off.** The next time you start Codex after the file is added or changed, it
+opens with this:
+
+```
+Hooks need review
+4 hooks are new or changed.
+Hooks can run outside the sandbox after you trust them.
+
+   1. Review hooks
+ > 2. Trust all and continue
+   3. Continue without trusting (hooks won't run)
+```
+
+Pick "Trust all and continue", or review them first: each one runs
+`hooks/python.sh`, which finds a Python and execs the script named after it.
+Picking the third answer, or dismissing the prompt, leaves the plugin
+installed and inert — no convention, no card, no gate, no journal, and nothing
+on screen to say why. The prompt returns whenever the file changes, and
+`/hooks` inside a session lists what is registered.
+
+`codex exec` never asks and so never trusts. Hooks run there only with
+`codex exec --dangerously-bypass-hook-trust`, which also works on the
+interactive command if you would rather not grant trust permanently.
 
 The turn is recorded rather than read back. Codex does populate
 `transcript_path`, and says in the same breath that the transcript format is
