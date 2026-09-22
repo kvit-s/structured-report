@@ -4,6 +4,10 @@ A Claude Code plugin. It changes how a turn ends: instead of a paragraph saying
 the work is done, a turn that edited files or ran commands finishes with a short
 report and a question you answer by clicking one of two to four options.
 
+![A working turn ending with a short report and a Next card: pick an option and the agent continues in the same turn.](screen.gif)
+
+*By [kvit](https://kvit.app). Free and MIT licensed — read [why a turn should end with a choice](https://blog.kvit.app/posts/ending-a-turn-with-a-choice/).*
+
 ## The problem it addresses
 
 When Claude finishes a piece of work, the thing you have to act on — do this
