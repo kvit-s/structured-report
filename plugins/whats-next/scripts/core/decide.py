@@ -37,7 +37,7 @@ class Verdict:
 
 def decide(profile, turn: list[turn_mod.Event], final_text: str) -> Verdict:
     calls = turn_mod.tool_calls(turn)
-    asks = [c for c in calls if c.name == profile.ask_tool]
+    asks = [c for c in calls if profile.is_ask(c.name)]
     changes = [c for c in calls if mutations.is_mutating(c, profile)]
     last_change = changes[-1].pos if changes else -1
     last_ask = asks[-1].pos if asks else -1

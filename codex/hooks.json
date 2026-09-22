@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$PLUGIN_ROOT/plugins/whats-next/hooks/python.sh\" \"$PLUGIN_ROOT/plugins/whats-next/scripts/report_context.py\" --host codex",
+            "command": "bash \"$WHATS_NEXT_ROOT/plugins/whats-next/hooks/python.sh\" \"$WHATS_NEXT_ROOT/plugins/whats-next/scripts/report_context.py\" --host codex",
             "statusMessage": "Loading the What's Next convention"
           }
         ]
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$PLUGIN_ROOT/plugins/whats-next/hooks/python.sh\" \"$PLUGIN_ROOT/plugins/whats-next/scripts/report_record.py\" --host codex"
+            "command": "bash \"$WHATS_NEXT_ROOT/plugins/whats-next/hooks/python.sh\" \"$WHATS_NEXT_ROOT/plugins/whats-next/scripts/report_record.py\" --host codex"
           }
         ]
       }
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$PLUGIN_ROOT/plugins/whats-next/hooks/python.sh\" \"$PLUGIN_ROOT/plugins/whats-next/scripts/report_record.py\" --host codex"
+            "command": "bash \"$WHATS_NEXT_ROOT/plugins/whats-next/hooks/python.sh\" \"$WHATS_NEXT_ROOT/plugins/whats-next/scripts/report_record.py\" --host codex"
           }
         ]
       }
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$PLUGIN_ROOT/plugins/whats-next/hooks/python.sh\" \"$PLUGIN_ROOT/plugins/whats-next/scripts/report_gate.py\" --host codex",
+            "command": "bash \"$WHATS_NEXT_ROOT/plugins/whats-next/hooks/python.sh\" \"$WHATS_NEXT_ROOT/plugins/whats-next/scripts/report_gate.py\" --host codex",
             "statusMessage": "Checking how the turn ended"
           }
         ]

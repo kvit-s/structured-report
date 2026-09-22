@@ -33,3 +33,10 @@ class HostProfile:
     write_tools: frozenset        # tools whose use means the turn changed something
     shell_tools: frozenset        # tools running a command, judged by the command
     ask: AskLimits = field(default_factory=AskLimits)
+    # Other names the same card has had. An agent that renames its question
+    # tool between releases is recognised either way, while the convention
+    # text always tells the model to call `ask_tool`.
+    ask_aliases: frozenset = frozenset()
+
+    def is_ask(self, tool_name: str) -> bool:
+        return tool_name == self.ask_tool or tool_name in self.ask_aliases

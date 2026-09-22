@@ -101,7 +101,7 @@ def main() -> int:
         print("No session record found for this directory.")
         return 1
 
-    reports = turn_mod.find_reports(host.read_events(path), host.PROFILE.ask_tool,
+    reports = turn_mod.find_reports(host.read_events(path), host.PROFILE,
                                     limit=max(1, args.count))
     if not reports:
         print(f"No report in this session yet ({os.path.basename(path)}).\n"

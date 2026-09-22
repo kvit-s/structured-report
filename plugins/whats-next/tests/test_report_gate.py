@@ -229,6 +229,11 @@ def gate_cases(root: str) -> None:
           and "decision" not in third,
           json.dumps([first.get("decision"), second.get("decision"), third])[:200])
 
+    spent = [r for r in index_mod.read_index(ws, limit=50)
+             if any("blocked 2 times" in p for p in r.get("problems") or [])]
+    check("a turn let through after the budget ran out is still recorded",
+          len(spent) == 1 and spent[0]["kind"] == "done", json.dumps(spent)[:200])
+
     plain = workspace_with_style(root, None)   # no output style named anywhere
     out = run(EDIT + [text("Done.")], last_message="Done.", session=sid(),
               workspace=plain)
@@ -582,8 +587,8 @@ def codex_cases(root: str) -> None:
         "hook_event_name": "SessionStart", "source": "startup"})
     body = (out.get("hookSpecificOutput") or {}).get("additionalContext", "")
     check("the convention arrives naming Codex's own tool",
-          "ask_user_question" in body and "AskUserQuestion" not in body,
-          body[-140:])
+          "request_user_input" in body and "AskUserQuestion" not in body
+          and "at most 3 questions" in body, body[-140:])
 
     def prompt_event(session: str, turn: str) -> dict:
         return {"cwd": ws, "session_id": session, "turn_id": turn,
@@ -605,7 +610,8 @@ def codex_cases(root: str) -> None:
                                          {"input": "*** Begin Patch"}))
     out = codex("report_gate.py", turn_end(session, "Done: patched it."))
     check("a patch with nothing offered is blocked",
-          out.get("decision") == "block" and "ask_user_question" in out.get("reason", ""),
+          out.get("decision") == "block"
+          and "request_user_input" in out.get("reason", ""),
           json.dumps(out)[:200])
 
     session = "test-session-c2"
@@ -631,7 +637,7 @@ def codex_cases(root: str) -> None:
                             {"label": "Stop here", "description": "Leave it."}]}]},
         '{"answers": {"0": "Commit (Recommended)"}}', call_id="call-3"))
     out = codex("report_gate.py", turn_end(session, "Built and committed."))
-    check("its own card, in its own spelling, ends the turn",
+    check("a card under the tool's other name is recognised too",
           out == {}, json.dumps(out)[:300])
 
     records = index_mod.read_index(ws, limit=10)

@@ -5,6 +5,38 @@ Every version of the What's Next plugin, newest first. The version is the
 also what `claude plugin update` compares against to decide whether a machine
 needs new files.
 
+## 0.5.1 — 2026-09-22
+
+**Tried it on a real Codex, and fixed what that turned up.** Against codex-cli
+0.155.1 the convention arrives at session start, the journal is written, and a
+turn that changed a file and ended with bare prose is blocked, after which
+Codex sends the reason back and the model rewrites its ending — the whole loop,
+working. Three things were wrong in 0.5.0:
+
+- The card is called `request_user_input` there, not `ask_user_question`, and
+  its own description says one to three questions. A profile can now list other
+  names the same tool has had, so a call under either name is recognised.
+- Codex reports its shell tool to hooks as `Bash`, with the command as a
+  string. Without that name in the profile, a turn that only ran commands
+  looked like a turn that did nothing.
+- `$PLUGIN_ROOT` is not set for hooks registered by hand, and the feature that
+  let plugins ship hooks is gone from this version, so `codex/hooks.json` now
+  uses `$WHATS_NEXT_ROOT`, which you either substitute or export.
+
+**A turn that ends after the block budget runs out is now written to the
+index.** It used to be allowed through and forgotten, which is the one ending
+you most want a record of. The record says how many times the prompt was
+blocked before it was let through. This applies to every host.
+
+Codex also asks before running new hooks: the first interactive session says
+they need review, `/hooks` approves them, and `codex exec
+--dangerously-bypass-hook-trust` skips the approval for one run. The README
+says so now, since the failure mode is silence.
+
+Still unchecked: the card itself, which `codex exec` cannot draw. In that
+environment the gate costs one extra round trip per turn that changes
+something, so `REPORT_GATE=off` belongs in CI.
+
 ## 0.5.0 — 2026-09-20
 
 **It runs in Codex as well.** Codex's hooks follow Claude Code's closely —

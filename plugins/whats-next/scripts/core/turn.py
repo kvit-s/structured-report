@@ -108,11 +108,15 @@ def branch_of(turn: list[Event]) -> str:
     return ""
 
 
-def find_reports(events: list[Event], ask_tool: str, limit: int = 1) -> list[dict]:
+def find_reports(events: list[Event], ask_tool, limit: int = 1) -> list[dict]:
     """The most recent calls of the question tool, newest first. Each item
     holds the call's input, the answers the user gave, the prose that preceded
     it and when it happened — which is all `/report` needs to draw the card
-    again, without anything having been written down a second time."""
+    again, without anything having been written down a second time.
+
+    `ask_tool` is the tool's name, or a host profile when the name has
+    alternatives."""
+    matches = getattr(ask_tool, "is_ask", None) or (lambda name: name == ask_tool)
     out: list[dict] = []
     pending: dict[str, dict] = {}
     recent_text = ""
@@ -120,7 +124,7 @@ def find_reports(events: list[Event], ask_tool: str, limit: int = 1) -> list[dic
         if event.role == "assistant":
             text = event.text.strip()
             for use in event.tool_uses:
-                if use.name != ask_tool:
+                if not matches(use.name):
                     continue
                 pending[use.id] = {
                     "input": use.input or {},

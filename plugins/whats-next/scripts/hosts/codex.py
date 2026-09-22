@@ -9,8 +9,9 @@ fires when a turn ends and is handed `last_assistant_message` and
 `stop_hook_active`, and printing `{"decision": "block", "reason": …}` keeps
 Codex going — the difference from Claude Code is that the reason becomes a new
 continuation prompt rather than a rejection of the stop, so the user sees the
-model pick the work up again rather than the same turn resuming. Codex also
-has its own `ask_user_question` tool, which draws the card.
+model pick the work up again rather than the same turn resuming. Codex draws the
+card with `request_user_input`, which takes one to three questions; builds
+that call the same tool `ask_user_question` are recognised as well.
 
 Why this keeps its own record of the turn
 -----------------------------------------
@@ -47,16 +48,24 @@ from core.turn import Event                            # noqa: E402
 PROFILE = HostProfile(
     key="codex",
     display="Codex",
-    ask_tool="ask_user_question",
-    # `apply_patch` is how Codex edits and creates files. When it is run as a
-    # shell command instead, the command classifier catches it, because
-    # `apply_patch` is not one of the programs that only read.
-    write_tools=frozenset({"apply_patch"}),
-    shell_tools=frozenset({"shell", "local_shell", "exec_command",
+    ask_tool="request_user_input",
+    # `apply_patch` is how Codex edits and creates files, and it arrives in a
+    # PostToolUse payload under that name. The Claude Code names are here too
+    # because Codex reports some tools under them — codex-cli 0.155.1 calls
+    # its shell tool `Bash` in hook payloads, whatever the model called.
+    write_tools=frozenset({"apply_patch", "Write", "Edit", "MultiEdit",
+                           "NotebookEdit"}),
+    shell_tools=frozenset({"Bash", "shell", "local_shell", "exec_command",
                            "unified_exec"}),
-    # Undocumented, so these are Claude Code's numbers, which the tool was
-    # modelled on. They only ever produce advice printed to the user.
-    ask=AskLimits(max_questions=4, min_options=2, max_options=4, header_max=12),
+    # From the tool's own description in codex-cli 0.155.1: "Request user
+    # input for one to three short questions and wait for the response." The
+    # option count and the header width are not stated anywhere, so Claude
+    # Code's numbers stand in; they only ever produce advice printed to the
+    # user, never a block.
+    ask=AskLimits(max_questions=3, min_options=2, max_options=4, header_max=12),
+    # Some builds and much of the writing about Codex call the same card
+    # `ask_user_question`, so a call by that name counts too.
+    ask_aliases=frozenset({"ask_user_question"}),
 )
 
 poll_for_turn = False
@@ -181,7 +190,7 @@ def record(payload: dict) -> None:
     response = payload.get("tool_response")
 
     answers = None
-    if name == PROFILE.ask_tool:
+    if PROFILE.is_ask(name):
         tool_input = normalize_ask(tool_input)
         found = _answers(tool_input, response)
         if found is not None:

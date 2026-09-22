@@ -27,7 +27,8 @@ When it stays out of the way
     finished;
   * this user prompt has already been blocked twice (REPORT_GATE_MAX_BLOCKS).
     Claude Code's own ceiling is eight consecutive blocks, which is a backstop
-    rather than a plan.
+    rather than a plan. The ending is still written to the index, with a note
+    saying it was let through.
 """
 
 from __future__ import annotations
@@ -156,15 +157,23 @@ def main() -> None:
     blocks_so_far = int(state.get("blocks") or 0) if state.get("user_uuid") == user_uuid else 0
     if stop.stop_hook_active and blocks_so_far == 0:
         blocks_so_far = 1  # state lost; assume one block has already happened
-    if blocks_so_far >= MAX_BLOCKS:
-        dbg(action="budget-spent", blocks=blocks_so_far)
-        host.emit_allow(f"report gate: {blocks_so_far} blocks on this prompt "
-                        "already, letting the turn end.")
-        sys.exit(0)
+    spent = blocks_so_far >= MAX_BLOCKS
 
     verdict = decide_mod.decide(profile, turn, final_text)
     dbg(action=verdict.action, kind=verdict.kind, entries=len(turn),
-        problems=verdict.problems, textlen=len(final_text))
+        problems=verdict.problems, textlen=len(final_text), spent=spent)
+
+    if verdict.action == "block" and spent:
+        # The budget is there to stop a turn ending in a loop, so the ending
+        # stands as it is. It still happened, so it is written down with the
+        # reason it was not put right.
+        digest = hashlib.sha1((user_uuid + final_text).encode("utf-8")).hexdigest()[:16]
+        index(profile, stop, turn, "done", f"done:{digest}", final_text,
+              problems=[f"blocked {blocks_so_far} times on this prompt; "
+                        "the turn was allowed to end as it was"])
+        host.emit_allow(f"report gate: {blocks_so_far} blocks on this prompt "
+                        "already, letting the turn end.")
+        sys.exit(0)
 
     if verdict.action == "block":
         save_state(stop.session_id, {"user_uuid": user_uuid, "blocks": blocks_so_far + 1})
@@ -175,7 +184,7 @@ def main() -> None:
         save_state(stop.session_id, {"user_uuid": user_uuid, "blocks": 0})
 
     if verdict.kind == "ask":
-        records = turn_mod.find_reports(turn, profile.ask_tool, limit=1)
+        records = turn_mod.find_reports(turn, profile, limit=1)
         prose = records[0].get("prose") if records else ""
         index(profile, stop, turn, "ask", verdict.ask.id or f"ask:{user_uuid}",
               prose or final_text, ask=verdict.ask, problems=verdict.problems)

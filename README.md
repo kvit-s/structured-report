@@ -172,30 +172,43 @@ handed `last_assistant_message` and `stop_hook_active`. One difference matters.
 Printing `{"decision": "block", "reason": …}` there does not reject the stop and
 resume the same turn; it starts a new one with the reason as its prompt, so what
 you see is the model picking the work up again rather than the turn continuing.
-The card is Codex's own `ask_user_question`.
+The card is Codex's own `request_user_input`, which takes one to three
+questions.
 
-There is no one-command install yet. Clone this repository, then merge
-[`codex/hooks.json`](codex/hooks.json) into `~/.codex/hooks.json`, or drop it in
-a project's `.codex/hooks.json`, replacing `$PLUGIN_ROOT` with the path to the
-clone. Installed as a Codex plugin, `$PLUGIN_ROOT` is set for you and the file
-works unchanged. Four hooks are registered: `SessionStart` for the convention,
-`UserPromptSubmit` and `PostToolUse` to write the turn down, and `Stop` for the
-gate.
+Installing is by hand. Clone this repository, then copy
+[`codex/hooks.json`](codex/hooks.json) to `~/.codex/hooks.json`, replacing
+`$WHATS_NEXT_ROOT` with the path to the clone — or leave the file as it is and
+export `WHATS_NEXT_ROOT` in your shell profile, since a hook command runs in a
+shell that inherits your environment. A project's `.codex/hooks.json` works the
+same way for one repository. Four hooks are registered: `SessionStart` for the
+convention, `UserPromptSubmit` and `PostToolUse` to write the turn down, and
+`Stop` for the gate.
 
-The turn is recorded rather than read back, as it is under Gemini CLI, though
-for a different reason: Codex does hand hooks a `transcript_path`, and says in
-the same breath that the transcript format is not a stable interface for hooks
-and may change. Its `PostToolUse` payload is documented, so that is what the
-adapter uses.
+**Codex asks before it runs them.** Newly added hooks are untrusted, and the
+first interactive session says that so many hooks need review before they can
+run; `/hooks` is where you approve them. Until then nothing happens, with no
+error. For a non-interactive run, `codex exec
+--dangerously-bypass-hook-trust` runs them without the persisted approval.
 
-Two things are unverified here. `ask_user_question`'s parameter schema is not
-documented, so the adapter accepts the spellings it is likely to use — a
-question under `question`, `prompt` or `text`, options as strings or objects,
-a `recommended` flag turned into the " (Recommended)" this convention expects —
-and leaves a call it cannot read alone rather than complaining about it. And
-none of this has been run against an installed Codex; the hook contract comes
-from its documentation and the test suite drives it with payloads of that
-shape.
+The turn is recorded rather than read back. Codex does populate
+`transcript_path`, and says in the same breath that the transcript format is
+not a stable interface for hooks and may change, while the `PostToolUse`
+payload is documented, so that is what the adapter uses.
+
+What was checked against codex-cli 0.155.1, in a real session: the convention
+arrives and the model answers from it; the journal is written; a turn that
+changed a file and ended with bare prose is blocked, and Codex sends the reason
+back and the model rewrites its ending with a headline, a `Checks:` line and
+either a card or `No follow-up:`. That run also settled two names — Codex
+reports its shell tool to hooks as `Bash` with the command as a string, and its
+edits as `apply_patch`.
+
+What has not been checked is the card itself, because `request_user_input` is
+unavailable in `codex exec` and only an interactive session can draw one. That
+absence has a consequence worth knowing: in `codex exec`, and so in CI, a turn
+that changes something cannot offer anything, so the gate costs one extra round
+trip before the model falls back to `No follow-up:`. Set `REPORT_GATE=off` in
+that environment if you would rather it stayed quiet.
 
 ## When it stops running on Windows
 
