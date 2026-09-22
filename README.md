@@ -1,9 +1,8 @@
 # What's Next
 
-A plugin for Claude Code, and an extension for Gemini CLI. It changes how a
-turn ends: instead of a paragraph saying the work is done, a turn that edited
-files or ran commands finishes with a short report and a question you answer by
-clicking one of two to four options.
+A Claude Code plugin. It changes how a turn ends: instead of a paragraph saying
+the work is done, a turn that edited files or ran commands finishes with a short
+report and a question you answer by clicking one of two to four options.
 
 ## The problem it addresses
 
@@ -131,38 +130,6 @@ claude plugin install whats-next@kvit
 renamed the plugin from `structured-report` and the marketplace from `kvit-s`,
 so a machine that installed either of those needs the steps given there rather
 than an ordinary update.
-
-## Running it in Gemini CLI
-
-Gemini CLI has the three things the convention needs, under its own names, so
-the same rules run there:
-
-```
-gemini extensions install https://github.com/kvitapp/kvit-plugins.git
-```
-
-The extension registers four hooks. `SessionStart` hands the model the
-convention. `AfterAgent`, which fires once per turn after the model's final
-response, is the gate: printing `{"decision": "deny", "reason": …}` rejects
-that response and sends the reason back as a new prompt, which is Gemini's
-spelling of a block. `BeforeAgent` and `AfterTool` write down what the turn
-did, which is needed because Gemini hands its hooks a `transcript_path` that
-is stubbed and arrives empty — the lines go to
-`~/.whats-next/sessions/<project>/<session>.jsonl` and are read back by the
-gate. The card is Gemini's `ask_user` tool, whose header is sixteen characters
-rather than twelve, and the convention text says so when it is delivered there.
-
-Two things are missing compared with Claude Code. There is no `/report`
-command yet, because a Gemini custom command cannot reliably find the
-extension's own directory; `python3 <extension>/plugins/whats-next/scripts/report_last.py
---history 20 --host gemini_cli` prints the same history in the meantime. And
-the card comes back without the prose that preceded it, since Gemini hands
-over the response text only once the turn is finished, after the card was
-drawn.
-
-The hook contract above is taken from Gemini CLI's documentation and exercised
-in the test suite against payloads built by hand; it has not yet been run
-against an installed Gemini CLI. Treat the first real session as the test.
 
 ## When it stops running on Windows
 
@@ -298,18 +265,14 @@ delivers, the switch resolving across nested directories, and the classifier tha
 decides whether a shell or PowerShell command changed anything. A last group runs
 the same rules through a made-up second agent, whose tools have other names and
 whose card allows other numbers, which is what keeps Claude Code's names out of
-`core/`, and a group that drives the Gemini CLI hooks with payloads of the
-shape its documentation gives. The suite gives itself a temporary home
-directory, so the settings on the machine running it cannot change the
-answers.
+`core/`. The suite gives itself a temporary home directory, so the settings on
+the machine running it cannot change the answers.
 
 ## Layout
 
 ```
 CHANGELOG.md                           what changed in each version
-.claude-plugin/marketplace.json        the Claude Code catalogue
-gemini-extension.json                  the Gemini CLI manifest
-hooks/hooks.json                       the Gemini CLI hooks
+.claude-plugin/marketplace.json        the catalogue
 plugins/whats-next/
   .claude-plugin/plugin.json           the manifest
   hooks/hooks.json                     SessionStart, Stop and MessageDisplay
@@ -318,7 +281,6 @@ plugins/whats-next/
   scripts/report_gate.py               the Stop hook
   scripts/report_display.py            the MessageDisplay hook
   scripts/report_last.py               what /report runs
-  scripts/report_record.py             writes the turn down where nothing else does
   scripts/core/                        the rules, which no agent owns
     profile.py                         what an agent calls its tools
     turn.py                            one turn, as events and tool calls
@@ -329,10 +291,8 @@ plugins/whats-next/
     convention.py                      the text handed to the model
     card.py                            drawing a report back as text
     index.py                           one line per report, per project
-    journal.py                         a turn kept when the agent keeps none
     config.py                          where the switches are read from
   scripts/hosts/claude_code.py         transcripts, settings and hook JSON
-  scripts/hosts/gemini_cli.py          the same for Gemini CLI
   skills/report/SKILL.md               the /report command
   output-styles/report.md              the convention itself, read by the hook
   tests/test_report_gate.py
@@ -344,9 +304,13 @@ it writes a session record and what that record looks like, which of its tools
 change files, what its question tool is called and what one card may hold, the
 JSON its hooks receive and may print — is in the adapter, and the rules read it
 from a profile. Porting to another agent means writing a second adapter rather
-than a second copy of the rules. `--host <name>` on a hook's command line
+than a second copy of the rules: `--host <name>` on a hook's command line
 names which adapter to load, `WHATS_NEXT_HOST` does the same from the
-environment, and `claude_code` is the default.
+environment, and `claude_code` is the default and the only one shipped.
+Whether a port is worth making depends on the agent. What the convention needs
+is a question tool whose answer comes back inside the turn, and an agent that
+draws the card but carries on without waiting gives you the checks without the
+thing they are for.
 
 ## Licence
 

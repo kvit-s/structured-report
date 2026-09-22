@@ -5,6 +5,29 @@ Every version of the What's Next plugin, newest first. The version is the
 also what `claude plugin update` compares against to decide whether a machine
 needs new files.
 
+## 0.7.0 — 2026-09-22
+
+**Gemini CLI support is removed too, and the plugin is a Claude Code plugin
+again.** Gone with it: `hosts/gemini_cli.py`, the extension manifest and its
+`hooks/hooks.json`, `scripts/report_record.py`, and `core/journal.py`, which
+existed only because Gemini hands its hooks a `transcript_path` that is
+stubbed and arrives empty. Nothing else needed them.
+
+The reason is the same one that removed Codex in 0.6.0, applied honestly: the
+Gemini adapter was written against documentation and never run against an
+installed Gemini CLI. Codex looked just as convincing on paper and turned out,
+in a real session, to draw the card and carry on without waiting for it —
+which is the one behaviour the convention depends on. Shipping a second host
+on that footing means asking people to find that out for themselves.
+
+**The split between the rules and the agent stays.** `core/` still names no
+tool and opens no file, `hosts/claude_code.py` still holds everything true of
+Claude Code alone, and the test suite still runs the same decisions through an
+invented second agent whose tools have other names, whose card takes other
+numbers and whose question tool has been renamed once. That is what keeps
+Claude Code's names out of the rules, and what a port would start from.
+Nothing about the plugin's behaviour in Claude Code has changed since 0.3.0.
+
 ## 0.6.0 — 2026-09-22
 
 **Codex support is removed.** The adapter, its hook file and its tests are
