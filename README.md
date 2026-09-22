@@ -1,12 +1,12 @@
 # What's Next
 
-A Claude Code plugin. It changes how a turn ends: instead of a long end of turn report
-it finishes with a short report and a question/suggestion you respond to by selecting one
-of two to four options.
+A Claude Code plugin. It changes how Claude's reply to you ends: instead of a long report
+at the end, it finishes with a short report and a question/suggestion you respond to by
+selecting one of two to four options.
 
-![A working turn ending with a short report and a Next card: pick an option and the agent continues in the same turn.](screen.gif)
+![A reply that changed files, ending with a short report and a Next card: pick an option and the agent continues without waiting for a new message.](screen.gif)
 
-*By [kvit](https://kvit.app). Free and MIT licensed — read [why a turn should end with a choice](https://blog.kvit.app/posts/ending-a-turn-with-a-choice/).*
+*By [kvit](https://kvit.app). Free and MIT licensed — read [why a reply should end with a choice](https://blog.kvit.app/posts/ending-a-turn-with-a-choice/).*
 
 ## The problem it addresses
 
@@ -17,8 +17,17 @@ round trip to get back to where the work was already pointing.
 
 Claude Code already has the right widget for this: the `AskUserQuestion` tool
 draws a card of labelled options, keyboard-selectable, with free text always
-available. This plugin makes that call the way a working turn
-ends, and checks that it happened.
+available. This plugin makes that call the way a reply that
+changed something ends, and checks that it happened.
+
+## What counts as a reply
+
+A reply is everything Claude does between your message and the moment it stops and
+waits for you. Along the way it may read twenty files, run the tests and make a dozen
+edits, and none of those steps ends the reply. The card appears once, at that final
+stop, in place of the closing report Claude would have written anyway. Nothing is
+added between tool calls. A reply that only read files and answered a question ends
+in ordinary prose, with no card.
 
 ## Install
 
@@ -42,7 +51,7 @@ claude plugin marketplace update kvit
 claude plugin update whats-next@kvit
 ```
 
-## What a turn looks like afterwards
+## What a reply looks like afterwards
 
 > Reordering works and survives a restart.
 > - Moved the reorder logic into `internal/order`, hidden rows keep their slots.
